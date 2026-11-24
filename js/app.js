@@ -168,18 +168,22 @@ async function showRemoteChannels(rawUrl){
    const title=document.createElement('strong');title.textContent=channel.name;
    const host=document.createElement('small');host.textContent=new URL(channel.url).hostname;
    details.append(title,host);
-   const add=document.createElement('button');add.className='button primary channel-add';add.textContent='＋ Añadir';
+   const add=document.createElement('button');add.className='button primary channel-add';add.textContent='▶ Reproducir';
    add.disabled=streams.length>=6;
-   add.onclick=()=>{
+   const chooseChannel=()=>{
     if(streams.length>=6){toast('Máximo de 6 paneles. Quita uno para añadir otro.');return}
     const stream={id:id(),name:channel.name,url:channel.url,size:'medium',tall:false,muted:true};
     streams.push(stream);save();render();
     const card=dashboard.querySelector('[data-id="'+stream.id+'"]'),wrap=card?.querySelector('.player-wrap');
     if(card&&wrap)startPlayer(stream,wrap,card);
-    add.textContent='Añadido';add.disabled=true;
-    list.querySelectorAll('.channel-add').forEach(button=>{if(streams.length>=6)button.disabled=true});
-    toast(channel.name+' añadido a Multivista');
+    item.remove();
+    const remaining=list.querySelectorAll('.channel-item').length;
+    label.textContent=remaining+' canales disponibles · Selecciona uno para reproducir';
+    list.querySelectorAll('.channel-add').forEach(button=>{button.disabled=streams.length>=6});
+    toast(channel.name+' reproduciéndose');
    };
+   item.addEventListener('click',chooseChannel);
+   add.addEventListener('click',event=>{event.stopPropagation();chooseChannel()});
    item.append(number,details,add);list.append(item);
   });
  }catch(err){list.innerHTML='';const error=document.createElement('p');error.className='channel-error';error.textContent='No se pudo cargar la lista: '+err.message;list.append(error);label.textContent='Error al leer la lista';}
