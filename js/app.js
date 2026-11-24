@@ -9,14 +9,14 @@ function getBackgroundHost(){if(!backgroundHost){backgroundHost=document.createE
 function toast(msg){toastEl.textContent=msg;toastEl.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toastEl.classList.remove('show'),2600)}
 function id(){return 'p'+Math.random().toString(36).slice(2,10)}
 function youtubeId(url){try{const u=new URL(url);if(u.hostname.includes('youtu.be'))return u.pathname.slice(1).split('/')[0];if(u.hostname.includes('youtube.com')||u.hostname.includes('youtube-nocookie.com')){if(u.pathname==='/watch')return u.searchParams.get('v');const m=u.pathname.match(/\/(?:embed|live|shorts)\/([^/?]+)/);return m?.[1]||null}}catch{}return null}
-function classify(url){if(youtubeId(url))return'youtube';if(/\.m3u8?(?:$|[?#])/i.test(url))return'hls';if(/\.ts(?:$|[?#])/i.test(url))return'mpegts';return'video'}
+function classify(url){if(youtubeId(url))return'youtube';if(/\/api\/stream\/whep\/[a-z0-9_-]+(?:\?|$)/i.test(url))return'whep';if(/\.m3u8?(?:$|[?#])/i.test(url))return'hls';if(/\.ts(?:$|[?#])/i.test(url))return'mpegts';return'video'}
 function save(){localStorage.setItem(STORE,JSON.stringify(streams.map(({id,name,url,size,tall,muted})=>({id,name,url,size,tall,muted}))));}
 function load(){try{streams=JSON.parse(localStorage.getItem(STORE)||'[]').slice(0,6)}catch{streams=[]}render()}
 function addStream(name,url){if(streams.length>=6){toast('Máximo de 6 paneles');return}if(!url||!/^https?:\/\//i.test(url)){toast('Introduce una URL válida (http o https)');return}streams.push({id:id(),name:name.trim()||'Transmisión '+(streams.length+1),url,size:'medium',tall:false,muted:true});save();render();toast('Panel agregado')}
 function removeStream(pid){destroyPlayer(pid);const card=dashboard.querySelector('[data-id="'+pid+'"]');card?.querySelector('.player-wrap')?.replaceChildren();streams=streams.filter(s=>s.id!==pid);save();render();toast('Panel cerrado y transmisión detenida')}
 function replaceStream(pid,channel){const current=streams.find(s=>s.id===pid);if(!current)return false;const entry=players.get(pid);if(entry?.backgroundSlot)entry.backgroundSlot.remove();destroyPlayer(pid);current.name=channel.name;current.url=channel.url;current.muted=true;save();render();const card=dashboard.querySelector('[data-id="'+pid+'"]'),wrap=card?.querySelector('.player-wrap');if(card&&wrap)startPlayer(current,wrap,card);return true}
 function askPanelToReplace(channel,onSuccess){let picker=document.querySelector('#replacePanelDialog');if(!picker){picker=document.createElement('dialog');picker.id='replacePanelDialog';picker.className='dialog replace-dialog';picker.innerHTML='<div class="dialog-head"><div><h2>Reemplazar un panel</h2><p>Ya tienes 6 paneles ocupados. ¿Cuál deseas reemplazar por este canal?</p></div><button type="button" class="icon-button" data-close aria-label="Cerrar">×</button></div><div class="replace-panel-list"></div><div class="dialog-actions"><button type="button" class="button secondary" data-close>Cancelar</button></div>';picker.querySelectorAll('[data-close]').forEach(button=>button.addEventListener('click',()=>picker.close()));document.body.append(picker)}const list=picker.querySelector('.replace-panel-list');list.innerHTML='';streams.forEach((stream,index)=>{const button=document.createElement('button');button.type='button';button.className='replace-panel-option';const name=document.createElement('strong');name.textContent='Panel '+(index+1)+': '+stream.name;const source=document.createElement('small');source.textContent=stream.url;button.append(name,source);button.addEventListener('click',()=>{if(replaceStream(stream.id,channel)){picker.close();if(onSuccess)onSuccess();toast('Panel '+(index+1)+' reemplazado por '+channel.name)}});list.append(button)});if(typeof picker.showModal==='function')picker.showModal();else picker.setAttribute('open','')}
-function destroyPlayer(pid){const p=players.get(pid);if(p){try{if(p.player?.destroy)p.player.destroy();if(p.hls)p.hls.destroy();if(p.mpegts)p.mpegts.destroy()}catch{}players.delete(pid)}}
+function destroyPlayer(pid){const p=players.get(pid);if(p){try{if(p.player?.destroy)p.player.destroy();if(p.hls)p.hls.destroy();if(p.mpegts)p.mpegts.destroy();if(p.peerConnection)p.peerConnection.close();if(p.whepSessionUrl)fetch(p.whepSessionUrl,{method:'DELETE',keepalive:true}).catch(()=>{})}catch{}players.delete(pid)}}
 function render(){const liveNodes=new Map();for(const s of streams){const oldWrap=dashboard.querySelector('[data-id=\"'+s.id+'\"] .player-wrap');if(oldWrap&&players.has(s.id)&&oldWrap.childNodes.length)liveNodes.set(s.id,Array.from(oldWrap.childNodes));}dashboard.innerHTML='';const n=streams.length,cols=n>=5?3:n>=3?2:n||1,rows=Math.max(1,Math.ceil(n/cols));dashboard.className='dashboard panels-'+n;dashboard.style.height=n?'calc(100vh - 235px)':'auto';dashboard.style.gridTemplateColumns='repeat('+cols+',minmax(0,1fr))';dashboard.style.gridTemplateRows=n?'repeat('+rows+',minmax(0,1fr))':'none';countEl.textContent=streams.length+' / 6 PANELES';emptyState.hidden=streams.length>0;for(const s of streams){const card=document.createElement('article');card.className='panel '+(s.size==='small'?'small':s.size==='wide'?'wide':s.size==='full'?'full':'')+(s.tall?' tall':'');card.dataset.id=s.id;card.draggable=editMode;
 const head=document.createElement('div');head.className='panel-head';head.innerHTML='<span class="panel-name"></span><span class="panel-state">● LISTO</span><div class="panel-tools"></div>';head.querySelector('.panel-name').textContent=s.name;
 const tools=head.querySelector('.panel-tools');const addTool=(label,title,fn)=>{const b=document.createElement('button');b.className='icon-button';b.textContent=label;b.title=title;b.onclick=fn;tools.append(b)};
@@ -32,9 +32,72 @@ function toggleMute(s){const p=players.get(s.id);const nextMuted=!s.muted;s.mute
 setInterval(()=>{for(const s of streams)syncMuteState(s)},500)
 function maximize(card){const was=card.classList.contains('full');card.classList.toggle('full',!was);card.classList.toggle('maximized',!was);if(!was)card.scrollIntoView({behavior:'smooth',block:'center'});else card.classList.remove('maximized')}
 function changeSource(s){const next=prompt('Pega la nueva URL de YouTube o M3U8:',s.url);if(!next)return;if(!/^https?:\/\//i.test(next)){toast('URL no válida');return}destroyPlayer(s.id);s.url=next.trim();save();render()}
+
+function waitForIceGatheringComplete(pc,timeout=10000){
+ return new Promise(resolve=>{
+  let finished=false;
+  const finish=()=>{if(finished)return;finished=true;clearTimeout(timer);pc.removeEventListener('icegatheringstatechange',check);resolve()};
+  const check=()=>{if(pc.iceGatheringState==='complete')finish()};
+  const timer=setTimeout(finish,timeout);
+  pc.addEventListener('icegatheringstatechange',check);
+  check();
+ });
+}
+async function startWhep(s,video,state,entry){
+ if(!window.RTCPeerConnection)throw new Error('Este navegador no admite WebRTC');
+ const endpoint=new URL(s.url);
+ const iceResponse=await fetch(new URL('/api/stream/ice',endpoint.origin),{cache:'no-store'});
+ if(!iceResponse.ok)throw new Error('No se pudo obtener la configuración ICE (HTTP '+iceResponse.status+')');
+ const iceConfig=await iceResponse.json();
+ const pc=new RTCPeerConnection({iceServers:Array.isArray(iceConfig.iceServers)?iceConfig.iceServers:[]});
+ entry.peerConnection=pc;
+ pc.addTransceiver('video',{direction:'recvonly'});
+ pc.addTransceiver('audio',{direction:'recvonly'});
+ pc.ontrack=event=>{
+  if(event.streams&&event.streams[0])video.srcObject=event.streams[0];
+  else{
+   if(!video.srcObject)video.srcObject=new MediaStream();
+   video.srcObject.addTrack(event.track);
+  }
+  video.play().catch(()=>{});
+ };
+ pc.onconnectionstatechange=()=>{
+  if(pc.connectionState==='connected')state.textContent='● WHEP EN VIVO';
+  else if(pc.connectionState==='failed'||pc.connectionState==='disconnected')state.textContent='● WHEP DESCONECTADO';
+ };
+ const offer=await pc.createOffer();
+ await pc.setLocalDescription(offer);
+ await waitForIceGatheringComplete(pc);
+ if(players.get(s.id)!==entry){pc.close();return}
+ const response=await fetch(endpoint.href,{
+  method:'POST',
+  headers:{'Content-Type':'application/sdp','Accept':'application/sdp'},
+  body:pc.localDescription.sdp,
+  cache:'no-store'
+ });
+ if(!response.ok){
+  const detail=(await response.text().catch(()=>'' )).slice(0,180);
+  throw new Error('El servidor WHEP respondió HTTP '+response.status+(detail?' · '+detail:''));
+ }
+ const answer=await response.text();
+ const location=response.headers.get('Location');
+ if(location){
+  const sessionUrl=new URL(location,endpoint.origin);
+  sessionUrl.protocol=endpoint.protocol;
+  sessionUrl.host=endpoint.host;
+  entry.whepSessionUrl=sessionUrl.href;
+ }
+ if(players.get(s.id)!==entry){
+  if(entry.whepSessionUrl)fetch(entry.whepSessionUrl,{method:'DELETE',keepalive:true}).catch(()=>{});
+  pc.close();return;
+ }
+ await pc.setRemoteDescription({type:'answer',sdp:answer});
+ state.textContent='● WHEP NEGOCIADO';
+}
+
 function startPlayer(s,wrap,card){destroyPlayer(s.id);wrap.innerHTML='';const state=card.querySelector('.panel-state');state.textContent='● CONECTANDO';const kind=classify(s.url);
 if(kind==='youtube'){const host=document.createElement('div');host.id='yt-'+s.id;host.style.cssText='position:absolute;inset:0';wrap.append(host);const create=()=>{const player=new YT.Player(host.id,{videoId:youtubeId(s.url),width:'100%',height:'100%',playerVars:{autoplay:1,controls:1,playsinline:1,rel:0,modestbranding:1},events:{onReady:e=>{if(s.muted)e.target.mute();else e.target.unMute();state.textContent='● YOUTUBE'},onStateChange:e=>{state.textContent=e.data===1?'● EN VIVO / REPRODUCIENDO':e.data===3?'● CARGANDO':e.data===0?'● FINALIZADO':'● YOUTUBE'},onError:()=>{state.textContent='● NO DISPONIBLE';toast('YouTube no permite reproducir este vídeo incrustado')}}});players.set(s.id,{player})};if(window.YT?.Player)create();else window.onYouTubeIframeAPIReady=()=>create();
-}else{const video=document.createElement('video');video.controls=true;video.autoplay=true;video.playsInline=true;video.muted=s.muted;wrap.append(video);const entry={video};players.set(s.id,entry);video.addEventListener('volumechange',()=>{const nowMuted=video.muted;if(s.muted!==nowMuted){s.muted=nowMuted;save();updateMuteButton(s,card)}});if(kind==='mpegts'&&window.mpegts?.isSupported()){const player=mpegts.createPlayer({type:'mpegts',url:s.url,isLive:true});player.attachMediaElement(video);player.load();player.play().catch(()=>{});entry.mpegts=player;state.textContent='● MPEG-TS'}else if(kind==='mpegts'){state.textContent='● NO COMPATIBLE';toast('Este navegador no admite reproducción MPEG-TS')}else if(kind==='hls'){if(video.canPlayType('application/vnd.apple.mpegurl'))video.src=s.url;else if(window.Hls?.isSupported()){const hls=new Hls({enableWorker:true,capLevelToPlayerSize:true});hls.loadSource(s.url);hls.attachMedia(video);hls.on(Hls.Events.MANIFEST_PARSED,()=>{state.textContent='● HLS';video.play().catch(()=>toast('Presiona reproducir en el vídeo'))});hls.on(Hls.Events.ERROR,(_,data)=>{if(data.fatal){state.textContent='● ERROR DE FUENTE';toast('No se pudo cargar HLS. Revisa URL y CORS')}});entry.hls=hls}else{state.textContent='● NO COMPATIBLE';toast('Este navegador no admite HLS')}}else{video.src=s.url;video.addEventListener('loadedmetadata',()=>state.textContent='● CONECTADO',{once:true});video.addEventListener('error',()=>{state.textContent='● ERROR';toast('No se pudo reproducir esta URL')})}video.play().catch(()=>{})}}
+}else if(kind==='whep'){const video=document.createElement('video');video.controls=true;video.autoplay=true;video.playsInline=true;video.muted=s.muted;wrap.append(video);const entry={video};players.set(s.id,entry);video.addEventListener('volumechange',()=>{const nowMuted=video.muted;if(s.muted!==nowMuted){s.muted=nowMuted;save();updateMuteButton(s,card)}});startWhep(s,video,state,entry).catch(error=>{if(players.get(s.id)===entry){destroyPlayer(s.id);state.textContent='● ERROR WHEP';toast('No se pudo abrir '+s.name+': '+error.message)}})}else{const video=document.createElement('video');video.controls=true;video.autoplay=true;video.playsInline=true;video.muted=s.muted;wrap.append(video);const entry={video};players.set(s.id,entry);video.addEventListener('volumechange',()=>{const nowMuted=video.muted;if(s.muted!==nowMuted){s.muted=nowMuted;save();updateMuteButton(s,card)}});if(kind==='mpegts'&&window.mpegts?.isSupported()){const player=mpegts.createPlayer({type:'mpegts',url:s.url,isLive:true});player.attachMediaElement(video);player.load();player.play().catch(()=>{});entry.mpegts=player;state.textContent='● MPEG-TS'}else if(kind==='mpegts'){state.textContent='● NO COMPATIBLE';toast('Este navegador no admite reproducción MPEG-TS')}else if(kind==='hls'){if(video.canPlayType('application/vnd.apple.mpegurl'))video.src=s.url;else if(window.Hls?.isSupported()){const hls=new Hls({enableWorker:true,capLevelToPlayerSize:true});hls.loadSource(s.url);hls.attachMedia(video);hls.on(Hls.Events.MANIFEST_PARSED,()=>{state.textContent='● HLS';video.play().catch(()=>toast('Presiona reproducir en el vídeo'))});hls.on(Hls.Events.ERROR,(_,data)=>{if(data.fatal){state.textContent='● ERROR DE FUENTE';toast('No se pudo cargar HLS. Revisa URL y CORS')}});entry.hls=hls}else{state.textContent='● NO COMPATIBLE';toast('Este navegador no admite HLS')}}else{video.src=s.url;video.addEventListener('loadedmetadata',()=>state.textContent='● CONECTADO',{once:true});video.addEventListener('error',()=>{state.textContent='● ERROR';toast('No se pudo reproducir esta URL')})}video.play().catch(()=>{})}}
 
 async function importRemotePlaylist(presetUrl){
  const raw=presetUrl||prompt('Pega la URL pública de la lista .m3u o .m3u8:');
@@ -236,6 +299,8 @@ channelDropdown.onclick=()=>{
   channelDropdown.textContent='Lista de Canales ▾';
  }
 };
+
+document.querySelector('#ledriumBtn').onclick=()=>showRemoteChannels('https://raw.githubusercontent.com/xDraker/multivista/refs/heads/main/ledrium-cameras.m3u');
 document.querySelector('#hideChannelsBtn').onclick=()=>{document.querySelector('#channelBrowser').hidden=true;channelDropdown.setAttribute('aria-expanded','false');channelDropdown.textContent='Lista de Canales ▾'};
 document.querySelector('#refreshChannelsBtn').onclick=()=>showRemoteChannels('https://raw.githubusercontent.com/xDraker/TV_Chile_Grabable/refs/heads/main/TV%20Chile%20Grabable');
 
