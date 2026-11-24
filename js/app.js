@@ -30,70 +30,91 @@ async function importRemotePlaylist(){
  const raw=prompt('Pega la URL pública de la lista .m3u o .m3u8:');
  if(!raw)return;
  let url;
- try{url=new URL(raw.trim());if(!/^https?:$/.test(url.protocol))throw new Error('protocol')}catch{toast('Introduce una URL http o https válida');return}
+ try{
+  url=new URL(raw.trim());
+  if(!/^https?:$/.test(url.protocol))throw new Error('La dirección debe comenzar con http:// o https://');
+ }catch(err){toast(err.message||'URL no válida');return}
  const available=6-streams.length;
  if(available<=0){toast('Ya tienes 6 paneles. Elimina uno antes de importar.');return}
- async function readPlaylist(target){
-  const response=await fetch(target,{mode:'cors',headers:{'Accept':'text/plain, application/vnd.github.raw, */*'}});
-  if(!response.ok)throw new Error('HTTP '+response.status);
+ const info=document.querySelector('#playlistInfo');
+ const showError=message=>{
+  info.hidden=false;info.textContent=message;toast(message);
+ };
+ function githubFileApi(u){
+  if(u.hostname!=='raw.githubusercontent.com')return null;
+  const p=u.pathname.split('/').filter(Boolean);
+  if(p.length<4)return null;
+  let branch,path;
+  if(p[2]==='refs'&&p[3]==='heads'){branch=p[4];path=p.slice(5)}
+  else{branch=p[2];path=p.slice(3)}
+  if(!branch||!path.length)return null;
+  return 'https://api.github.com/repos/'+p[0]+'/'+p[1]+'/contents/'+path.map(encodeURIComponent).join('/')+'?ref='+encodeURIComponent(branch);
+ }
+ async function fetchText(target){
+  const response=await fetch(target,{cache:'no-store',headers:{'Accept':'application/vnd.github.raw, text/plain, */*'}});
+  if(!response.ok)throw new Error('El servidor respondió HTTP '+response.status);
   return await response.text();
  }
- async function readGitHubRaw(u){
-  if(u.hostname!=='raw.githubusercontent.com')throw new Error('No se pudo acceder al servidor (posible bloqueo CORS)');
-  const parts=u.pathname.split('/').filter(Boolean);
-  if(parts.length<4)throw new Error('URL de GitHub Raw no reconocida');
-  const owner=parts[0],repo=parts[1];let branch,pathParts;
-  if(parts[2]==='refs'&&parts[3]==='heads'){branch=parts[4];pathParts=parts.slice(5)}
-  else{branch=parts[2];pathParts=parts.slice(3)}
-  if(!branch||!pathParts.length)throw new Error('No se pudo identificar el archivo en GitHub');
-  const api='https://api.github.com/repos/'+owner+'/'+repo+'/contents/'+pathParts.map(encodeURIComponent).join('/')+'?ref='+encodeURIComponent(branch);
-  const response=await fetch(api,{headers:{'Accept':'application/vnd.github+json'}});
+ async function fetchGitHubApi(api){
+  const response=await fetch(api,{cache:'no-store',headers:{'Accept':'application/vnd.github+json'}});
   if(!response.ok)throw new Error('GitHub API respondió HTTP '+response.status);
   const data=await response.json();
-  if(!data.content||data.encoding!=='base64')throw new Error('GitHub no entregó el contenido de la lista');
+  if(typeof data.content!=='string')throw new Error('GitHub no entregó el contenido del archivo');
   const binary=atob(data.content.replace(/\s/g,''));
   const bytes=Uint8Array.from(binary,c=>c.charCodeAt(0));
-  return new TextDecoder('utf-8').decode(bytes);
+  return new TextDecoder().decode(bytes);
  }
  try{
-  toast('Descargando lista remota…');
-  let content;
-  try{content=await readPlaylist(url.href)}catch(firstError){
-   if(url.hostname==='raw.githubusercontent.com'){toast('Acceso directo bloqueado; probando vía GitHub…');content=await readGitHubRaw(url)}
-   else throw firstError;
+  info.hidden=false;info.textContent='Conectando con la lista remota…';toast('Descargando lista…');
+  let content,lastError;
+  const api=githubFileApi(url);
+  if(api){
+   try{content=await fetchGitHubApi(api)}catch(err){lastError=err}
   }
-  content=content.replace(/^\uFEFF/,'');
-  if(!content.trim().startsWith('#EXTM3U'))throw new Error('El archivo descargado no contiene una cabecera #EXTM3U válida');
-  const lines=content.split(/\r?\n/);let name='';const found=[];
-  const isHlsManifest=lines.some(line=>/^#EXT-X-(TARGETDURATION|MEDIA-SEQUENCE|STREAM-INF|ENDLIST|PLAYLIST-TYPE|VERSION)/i.test(line.trim()))&&!lines.some(line=>/^#EXTINF/i.test(line.trim()));
+  if(typeof content!=='string'){
+   try{content=await fetchText(url.href)}catch(err){lastError=err}
+  }
+  if(typeof content!=='string')throw lastError||new Error('No se pudo descargar el archivo');
+  content=content.replace(/^\uFEFF/,'').trim();
+  if(!content.startsWith('#EXTM3U'))throw new Error('El archivo no comienza con #EXTM3U. Comprueba que el enlace apunte al archivo M3U y no a una página web.');
+  const lines=content.split(/\r?\n/);
+  const found=[];let name='';
   for(const rawLine of lines){
-   const line=rawLine.trim();if(!line)continue;
-   if(line.startsWith('#EXTINF')){name=line.split(',').slice(1).join(',').trim()||'Canal '+(found.length+1);continue}
-   if(line.startsWith('#'))continue;
-   try{const streamUrl=new URL(line,url.href);if(/^https?:$/.test(streamUrl.protocol)){found.push({name:name||'Canal '+(found.length+1),url:streamUrl.href});name=''}}catch{}
-  }
-  if(found.length&&!isHlsManifest){
-   const selected=found.slice(0,available);
-   for(const item of selected){
-    streams.push({id:id(),name:item.name,url:item.url,size:'medium',tall:false,muted:true});
+   const line=rawLine.trim();
+   if(!line)continue;
+   if(line.startsWith('#EXTINF')){
+    const comma=line.indexOf(',');
+    name=comma>=0?line.slice(comma+1).trim():'Canal '+(found.length+1);
+    continue;
    }
-   save();
-   render();
-   const info=document.querySelector('#playlistInfo');info.hidden=false;
-   info.textContent='Lista remota: '+found.length+' canales detectados. Se crearon '+selected.length+' paneles. Intentando iniciar las transmisiones sin sonido.';
-   selected.forEach((item,index)=>{
-    const stream=streams[streams.length-selected.length+index];
-    const card=dashboard.querySelector('[data-id="'+stream.id+'"]');
-    const wrap=card?.querySelector('.player-wrap');
-    if(card&&wrap)startPlayer(stream,wrap,card);
-   });
-   toast(selected.length+' paneles creados; iniciando transmisiones'+(found.length>selected.length?'. Hay '+(found.length-selected.length)+' canales adicionales.':'.'));
-  }else{
-   addStream(url.pathname.split('/').pop()||'Transmisión HLS',url.href);
+   if(line.startsWith('#'))continue;
+   try{
+    const streamUrl=new URL(line,url.href);
+    if(/^https?:$/.test(streamUrl.protocol)){
+     found.push({name:name||'Canal '+(found.length+1),url:streamUrl.href});
+     name='';
+    }
+   }catch{}
   }
+  if(!found.length){
+   if(/#EXT-X-(TARGETDURATION|MEDIA-SEQUENCE|STREAM-INF|ENDLIST|PLAYLIST-TYPE|VERSION)/i.test(content)){
+    addStream(url.pathname.split('/').pop()||'Transmisión HLS',url.href);
+    info.textContent='Se detectó un manifiesto HLS individual. Se creó un panel; pulsa Reproducir para iniciar.';
+    return;
+   }
+   throw new Error('La lista se descargó, pero no contiene enlaces HTTP/HTTPS reconocibles.');
+  }
+  const selected=found.slice(0,available);
+  for(const item of selected){
+   streams.push({id:id(),name:item.name,url:item.url,size:'medium',tall:false,muted:true});
+  }
+  save();render();
+  info.hidden=false;
+  info.textContent='Importación correcta: '+found.length+' canales detectados; '+selected.length+' paneles creados. '+(found.length>selected.length?'Quedan '+(found.length-selected.length)+' canales por importar porque el máximo es 6.':'');
+  toast('Se crearon '+selected.length+' paneles');
  }catch(err){
-  console.error('Error importando lista remota:',err);
-  toast(err.message||'No se pudo importar la lista. Revisa la URL y los permisos del servidor.');
+  console.error('Multivista importRemotePlaylist:',err);
+  showError('No se pudo importar la lista: '+(err?.message||'error desconocido'));
  }
 }
 function toggleDialog(){document.querySelector('#streamName').value='';document.querySelector('#streamUrl').value='';dialog.showModal()}
