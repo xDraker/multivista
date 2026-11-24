@@ -356,3 +356,24 @@ function autoplaySavedStreams(){
  }
 }
 autoplaySavedStreams();
+
+
+// Menús desplegables de acciones de la barra principal.
+function setupToolbarMenu(buttonId,menuId){
+ const button=document.querySelector('#'+buttonId),menu=document.querySelector('#'+menuId);
+ if(!button||!menu)return;
+ const close=()=>{menu.hidden=true;button.setAttribute('aria-expanded','false');button.textContent=button.textContent.replace('▴','▾')};
+ button.addEventListener('click',event=>{
+  event.stopPropagation();
+  const opening=menu.hidden;
+  document.querySelectorAll('.toolbar-menu').forEach(other=>{other.hidden=true});
+  document.querySelectorAll('.menu-trigger').forEach(trigger=>{trigger.setAttribute('aria-expanded','false');trigger.textContent=trigger.textContent.replace('▴','▾')});
+  menu.hidden=!opening;
+  button.setAttribute('aria-expanded',String(opening));
+  button.textContent=button.textContent.replace(opening?'▾':'▴',opening?'▴':'▾');
+ });
+ menu.addEventListener('click',event=>{if(event.target.closest('button')||event.target.closest('label'))close()});
+ document.addEventListener('click',event=>{if(!menu.contains(event.target)&&!button.contains(event.target))close()});
+}
+setupToolbarMenu('importMenuBtn','importMenu');
+setupToolbarMenu('optionsMenuBtn','optionsMenu');
