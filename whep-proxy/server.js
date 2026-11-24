@@ -46,7 +46,7 @@ const dns = require('node:dns').promises;
 const net = require('node:net');
 const IPTV_ALLOWED_HOSTS = (process.env.IPTV_PROXY_ALLOWED_HOSTS || [
   'mdstrm.com','dps.live','dpsgo.com','rudo.video','making.cl',
-  'intersurtv.cl','tlink.cl','senado.cl','15.204.196.147'
+  'intersurtv.cl','tlink.cl','senado.cl','dai.google.com','15.204.196.147'
 ].join(',')).split(',').map(x => x.trim().toLowerCase()).filter(Boolean);
 
 function isPrivateIp(address) {
