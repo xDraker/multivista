@@ -51,7 +51,7 @@ async function importRemotePlaylist(){
   if(!response.ok)throw new Error('GitHub API respondió HTTP '+response.status);
   const data=await response.json();
   if(!data.content||data.encoding!=='base64')throw new Error('GitHub no entregó el contenido de la lista');
-  const binary=atob(data.content.replace(/\\s/g,''));
+  const binary=atob(data.content.replace(/\s/g,''));
   const bytes=Uint8Array.from(binary,c=>c.charCodeAt(0));
   return new TextDecoder('utf-8').decode(bytes);
  }
@@ -62,9 +62,9 @@ async function importRemotePlaylist(){
    if(url.hostname==='raw.githubusercontent.com'){toast('Acceso directo bloqueado; probando vía GitHub…');content=await readGitHubRaw(url)}
    else throw firstError;
   }
-  content=content.replace(/^\\uFEFF/,'');
+  content=content.replace(/^\uFEFF/,'');
   if(!content.trim().startsWith('#EXTM3U'))throw new Error('El archivo descargado no contiene una cabecera #EXTM3U válida');
-  const lines=content.split(/\\r?\\n/);let name='';const found=[];
+  const lines=content.split(/\r?\n/);let name='';const found=[];
   const isHlsManifest=lines.some(line=>/^#EXT-X-(TARGETDURATION|MEDIA-SEQUENCE|STREAM-INF|ENDLIST|PLAYLIST-TYPE|VERSION)/i.test(line.trim()))&&!lines.some(line=>/^#EXTINF/i.test(line.trim()));
   for(const rawLine of lines){
    const line=rawLine.trim();if(!line)continue;
