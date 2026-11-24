@@ -119,7 +119,69 @@ async function importRemotePlaylist(presetUrl){
 }
 function toggleDialog(){document.querySelector('#streamName').value='';document.querySelector('#streamUrl').value='';dialog.showModal()}
 document.querySelector('#remoteM3uBtn').onclick=importRemotePlaylist;
-document.querySelector('#loadPlaylistBtn').onclick=()=>{const select=document.querySelector('#playlistSelect');if(!select.value){toast('Selecciona una lista primero');return}importRemotePlaylist(select.value)};
+async function showRemoteChannels(rawUrl){
+ const browser=document.querySelector('#channelBrowser'),list=document.querySelector('#channelList'),label=document.querySelector('#channelListCount');
+ browser.hidden=false;list.innerHTML='<div class="channel-loading">Cargando canales…</div>';
+ browser.scrollIntoView({behavior:'smooth',block:'start'});
+ try{
+  const u=new URL(rawUrl);
+  let textContent='';
+  if(u.hostname==='raw.githubusercontent.com'){
+   const p=u.pathname.split('/').filter(Boolean);let branch,path;
+   if(p[2]==='refs'&&p[3]==='heads'){branch=p[4];path=p.slice(5)}else{branch=p[2];path=p.slice(3)}
+   if(p.length>=4&&branch&&path.length){
+    const api='https://api.github.com/repos/'+p[0]+'/'+p[1]+'/contents/'+path.map(encodeURIComponent).join('/')+'?ref='+encodeURIComponent(branch);
+    const response=await fetch(api,{headers:{'Accept':'application/vnd.github+json'},cache:'no-store'});
+    if(!response.ok)throw new Error('GitHub respondió HTTP '+response.status);
+    const data=await response.json();
+    if(typeof data.content!=='string')throw new Error('GitHub no entregó el archivo M3U');
+    const binary=atob(data.content.replace(/\s/g,''));
+    textContent=new TextDecoder().decode(Uint8Array.from(binary,ch=>ch.charCodeAt(0)));
+   }
+  }
+  if(!textContent){
+   const response=await fetch(rawUrl,{cache:'no-store'});
+   if(!response.ok)throw new Error('El servidor respondió HTTP '+response.status);
+   textContent=await response.text();
+  }
+  textContent=textContent.replace(/^\uFEFF/,'');
+  if(!textContent.trim().startsWith('#EXTM3U'))throw new Error('El archivo no contiene una lista M3U válida');
+  const channels=[];let name='';
+  for(const raw of textContent.split(/\r?\n/)){
+   const line=raw.trim();if(!line)continue;
+   if(line.startsWith('#EXTINF')){const comma=line.indexOf(',');name=comma>=0?line.slice(comma+1).trim():'Canal '+(channels.length+1);continue}
+   if(line.startsWith('#'))continue;
+   try{const streamUrl=new URL(line,u.href);if(/^https?:$/.test(streamUrl.protocol)){channels.push({name:name||'Canal '+(channels.length+1),url:streamUrl.href});name=''}}catch{}
+  }
+  if(!channels.length)throw new Error('No se encontraron canales en la lista');
+  label.textContent=channels.length+' canales · Elige cuáles quieres reproducir';
+  list.innerHTML='';
+  channels.forEach((channel,index)=>{
+   const item=document.createElement('article');item.className='channel-item';
+   const number=document.createElement('span');number.className='channel-number';number.textContent=String(index+1).padStart(2,'0');
+   const details=document.createElement('div');details.className='channel-details';
+   const title=document.createElement('strong');title.textContent=channel.name;
+   const host=document.createElement('small');host.textContent=new URL(channel.url).hostname;
+   details.append(title,host);
+   const add=document.createElement('button');add.className='button primary channel-add';add.textContent='＋ Añadir';
+   add.disabled=streams.length>=6;
+   add.onclick=()=>{
+    if(streams.length>=6){toast('Máximo de 6 paneles. Quita uno para añadir otro.');return}
+    const stream={id:id(),name:channel.name,url:channel.url,size:'medium',tall:false,muted:true};
+    streams.push(stream);save();render();
+    const card=dashboard.querySelector('[data-id="'+stream.id+'"]'),wrap=card?.querySelector('.player-wrap');
+    if(card&&wrap)startPlayer(stream,wrap,card);
+    add.textContent='Añadido';add.disabled=true;
+    list.querySelectorAll('.channel-add').forEach(button=>{if(streams.length>=6)button.disabled=true});
+    toast(channel.name+' añadido a Multivista');
+   };
+   item.append(number,details,add);list.append(item);
+  });
+ }catch(err){list.innerHTML='';const error=document.createElement('p');error.className='channel-error';error.textContent='No se pudo cargar la lista: '+err.message;list.append(error);label.textContent='Error al leer la lista';}
+}
+document.querySelector('#loadPlaylistBtn').onclick=()=>{const select=document.querySelector('#playlistSelect');if(!select.value){toast('Selecciona una lista primero');return}showRemoteChannels(select.value)};
+document.querySelector('#hideChannelsBtn').onclick=()=>{document.querySelector('#channelBrowser').hidden=true};
+
 
 document.querySelector('#addBtn').onclick=toggleDialog;document.querySelector('#emptyAddBtn').onclick=toggleDialog;document.querySelector('#closeDialog').onclick=()=>dialog.close();document.querySelector('#cancelDialog').onclick=()=>dialog.close();
 form.addEventListener('submit',e=>{e.preventDefault();addStream(document.querySelector('#streamName').value,document.querySelector('#streamUrl').value.trim());dialog.close()});
