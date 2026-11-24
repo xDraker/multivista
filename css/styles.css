@@ -111,3 +111,6 @@ body.fit-fill .player-wrap video{object-fit:fill}
 .panel-state.status-waiting{color:#38bdf8}
 .panel-state.status-recovering{color:#fbbf24}
 .panel-state.status-error,.panel-state.status-disconnected{color:#f05252}
+
+/* Evitar que el menú de Opciones se salga del borde derecho */
+@media(min-width:851px){#optionsMenu{left:auto;right:0}}
