@@ -83,65 +83,132 @@ async function validateIptvUrl(raw) {
 function proxyUrlFor(rawUrl) {
   return '/iptv?url='+encodeURIComponent(rawUrl);
 }
-async function fetchIptvUpstream(initialUrl, req) {
-  let target=await validateIptvUrl(initialUrl);
-  for(let hop=0;hop<6;hop++){
-    const headers={
-      'User-Agent':req.headers['user-agent']||'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36',
-      'Accept':req.headers.accept||'*/*',
-      'Accept-Encoding':'identity',
-      'Origin':target.origin,
-      'Referer':target.origin+'/'
+function safeIptvLabel(raw) {
+  try {
+    const u = new URL(raw);
+    return u.hostname + u.pathname.slice(0, 120);
+  } catch {
+    return 'invalid-url';
+  }
+}
+
+async function fetchIptvUpstream(initialUrl, req, signal) {
+  let target = await validateIptvUrl(initialUrl);
+  for (let hop = 0; hop < 6; hop++) {
+    const headers = {
+      'User-Agent': req.headers['user-agent'] || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36',
+      'Accept': req.headers.accept || '*/*',
+      'Accept-Encoding': 'identity',
+      'Origin': target.origin,
+      'Referer': target.origin + '/'
     };
-    if(req.headers.range)headers.Range=req.headers.range;
-    const upstream=await fetch(target,{method:req.method==='HEAD'?'HEAD':'GET',headers,redirect:'manual',signal:AbortSignal.timeout(25000)});
-    if([301,302,303,307,308].includes(upstream.status)){
-      const location=upstream.headers.get('location');
-      if(!location) return {upstream,target};
-      target=await validateIptvUrl(new URL(location,target).href);
+    if (req.headers.range) headers.Range = req.headers.range;
+    const upstream = await fetch(target, {
+      method: req.method === 'HEAD' ? 'HEAD' : 'GET',
+      headers,
+      redirect: 'manual',
+      signal
+    });
+    if ([301, 302, 303, 307, 308].includes(upstream.status)) {
+      const location = upstream.headers.get('location');
+      if (!location) return { upstream, target };
+      target = await validateIptvUrl(new URL(location, target).href);
       continue;
     }
-    return {upstream,target};
+    return { upstream, target };
   }
   throw new Error('Demasiadas redirecciones IPTV');
 }
-async function handleIptvProxy(req,res,rawUrl) {
-  if(!rawUrl)return sendText(res,400,'Missing url parameter');
-  try{
-    const {upstream,target}=await fetchIptvUpstream(rawUrl,req);
-    res.statusCode=upstream.status;
-    for(const name of ['content-type','content-length','content-range','accept-ranges','last-modified','etag','cache-control']){
-      const value=upstream.headers.get(name);if(value)res.setHeader(name,value);
+
+async function handleIptvProxy(req, res, rawUrl) {
+  if (!rawUrl) return sendText(res, 400, 'Missing url parameter');
+
+  const startedAt = Date.now();
+  const controller = new AbortController();
+  const timeoutMs = Math.max(30000, Math.min(Number(process.env.IPTV_UPSTREAM_TIMEOUT_MS) || 90000, 180000));
+  const timer = setTimeout(() => controller.abort(new Error('Timeout de origen IPTV (' + timeoutMs + ' ms)')), timeoutMs);
+  const abortOnDisconnect = () => {
+    if (!res.writableEnded && !controller.signal.aborted) {
+      controller.abort(new Error('Cliente desconectado'));
     }
-    if(req.method==='HEAD'||!upstream.body)return res.end();
-    const contentType=(upstream.headers.get('content-type')||'').toLowerCase();
-    const isPlaylist=contentType.includes('mpegurl')||contentType.includes('application/vnd.apple.mpegurl')||
-      (target.pathname.toLowerCase().endsWith('.m3u8')||target.pathname.toLowerCase().endsWith('.m3u'));
-    if(isPlaylist){
-      const bytes=Buffer.from(await upstream.arrayBuffer());
-      if(bytes.length>4*1024*1024)return sendText(res,502,'Playlist IPTV demasiado grande');
-      let text=bytes.toString('utf8').replace(/^\uFEFF/,'');
-      if(text.trimStart().startsWith('#EXTM3U')){
-        const rewrite=(uri)=>proxyUrlFor(new URL(uri,target).href);
-        text=text.split(/\r?\n/).map(line=>{
-          const trimmed=line.trim();
-          if(!trimmed)return line;
-          if(trimmed.startsWith('#')){
-            return line.replace(/URI=(["'])(.*?)\1/g,(all,q,uri)=>'URI='+q+rewrite(uri)+q);
+  };
+  res.once('close', abortOnDisconnect);
+
+  try {
+    const { upstream, target } = await fetchIptvUpstream(rawUrl, req, controller.signal);
+    console.info('[iptv] upstream', req.method, safeIptvLabel(rawUrl), '->', safeIptvLabel(target.href), 'HTTP', upstream.status);
+    res.statusCode = upstream.status;
+    for (const name of ['content-type', 'content-length', 'content-range', 'accept-ranges', 'last-modified', 'etag', 'cache-control']) {
+      const value = upstream.headers.get(name);
+      if (value) res.setHeader(name, value);
+    }
+    if (req.method === 'HEAD' || !upstream.body) {
+      res.end();
+      return;
+    }
+
+    const contentType = (upstream.headers.get('content-type') || '').toLowerCase();
+    const isPlaylist = contentType.includes('mpegurl') ||
+      target.pathname.toLowerCase().endsWith('.m3u8') ||
+      target.pathname.toLowerCase().endsWith('.m3u');
+
+    if (isPlaylist) {
+      const chunks = [];
+      let total = 0;
+      const reader = upstream.body.getReader();
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          total += value.byteLength;
+          if (total > 4 * 1024 * 1024) throw new Error('Playlist IPTV supera 4 MB');
+          chunks.push(Buffer.from(value));
+        }
+      } finally {
+        reader.releaseLock();
+      }
+
+      const bytes = Buffer.concat(chunks);
+      let playlist = bytes.toString('utf8').replace(/^\uFEFF/, '');
+      if (playlist.trimStart().startsWith('#EXTM3U')) {
+        const rewrite = (uri) => {
+          const value = String(uri || '').trim();
+          if (!value || /^(data:|skd:|urn:)/i.test(value)) return value;
+          return proxyUrlFor(new URL(value, target).href);
+        };
+        playlist = playlist.split(/\r?\n/).map(line => {
+          const trimmed = line.trim();
+          if (!trimmed) return line;
+          if (trimmed.startsWith('#')) {
+            return line.replace(/URI=(["'])(.*?)\1/g, (all, quote, uri) => 'URI=' + quote + rewrite(uri) + quote);
           }
           return rewrite(trimmed);
         }).join('\n');
-        const body=Buffer.from(text,'utf8');
-        res.setHeader('Content-Type','application/vnd.apple.mpegurl; charset=utf-8');
-        res.setHeader('Content-Length',String(body.length));
-        return res.end(body);
+
+        const body = Buffer.from(playlist, 'utf8');
+        res.setHeader('Content-Type', 'application/vnd.apple.mpegurl; charset=utf-8');
+        res.setHeader('Content-Length', String(body.length));
+        res.end(body);
+      } else {
+        res.end(bytes);
       }
-      return res.end(bytes);
+      return;
     }
-    const {Readable}=require('node:stream');
-    Readable.fromWeb(upstream.body).pipe(res);
-  }catch(error){
-    sendText(res,502,'IPTV proxy error: '+(error.message||'upstream failure'));
+
+    const { Readable } = require('node:stream');
+    const { pipeline } = require('node:stream/promises');
+    await pipeline(Readable.fromWeb(upstream.body), res);
+  } catch (error) {
+    const message = error?.message || 'upstream failure';
+    console.error('[iptv] failure', safeIptvLabel(rawUrl), message, 'after', Date.now() - startedAt, 'ms');
+    if (res.headersSent) {
+      if (!res.destroyed) res.destroy(error);
+    } else if (!res.destroyed) {
+      sendText(res, 502, 'IPTV proxy error: ' + message);
+    }
+  } finally {
+    clearTimeout(timer);
+    res.removeListener('close', abortOnDisconnect);
   }
 }
 
