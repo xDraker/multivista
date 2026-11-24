@@ -236,3 +236,12 @@ document.querySelector('#fullscreenBtn').onclick=()=>{
 document.querySelector('#saveBtn').onclick=()=>{save();toast('Distribución guardada en este dispositivo')};
 document.querySelector('#m3uFile').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;try{const text=await file.text();const lines=text.split(/\r?\n/);let name='';const found=[];for(const raw of lines){const line=String(raw ?? '').trim();if(!line)continue;if(line.startsWith('#EXTINF')){name=line.split(',').slice(1).join(',').trim()||'Canal '+(found.length+1);continue}if(line.startsWith('#'))continue;if(/^https?:\/\//i.test(line)){found.push({name:name||'Canal '+(found.length+1),url:line});name=''}}if(!found.length){toast('No encontré enlaces HTTP/HTTPS en la lista');return}let added=0;for(const item of found.slice(0,6-streams.length)){addStream(item.name,item.url);added++}document.querySelector('#playlistInfo').hidden=false;document.querySelector('#playlistInfo').textContent='Lista '+file.name+': '+found.length+' fuentes encontradas, '+added+' paneles agregados. Puedes añadir más canales después.';toast(added+' fuentes importadas');}catch(err){toast('No se pudo leer el archivo M3U')}e.target.value=''});
 load();
+// Reanudar automáticamente todas las transmisiones guardadas al abrir o recargar la web.
+function autoplaySavedStreams(){
+ for(const stream of streams){
+  const card=dashboard.querySelector('[data-id="'+stream.id+'"]');
+  const wrap=card?.querySelector('.player-wrap');
+  if(card&&wrap)startPlayer(stream,wrap,card);
+ }
+}
+autoplaySavedStreams();
