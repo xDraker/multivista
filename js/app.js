@@ -74,10 +74,20 @@ async function importRemotePlaylist(){
   }
   if(found.length&&!isHlsManifest){
    const selected=found.slice(0,available);
-   for(const item of selected)addStream(item.name,item.url);
+   for(const item of selected){
+    streams.push({id:id(),name:item.name,url:item.url,size:'medium',tall:false,muted:true});
+   }
+   save();
+   render();
    const info=document.querySelector('#playlistInfo');info.hidden=false;
-   info.textContent='Lista remota: '+found.length+' canales detectados. Se agregaron '+selected.length+' de '+found.length+'.';
-   toast(selected.length+' canales agregados'+(found.length>selected.length?'; quedan '+(found.length-selected.length)+' sin agregar por el límite de 6 paneles.':''));
+   info.textContent='Lista remota: '+found.length+' canales detectados. Se crearon '+selected.length+' paneles. Intentando iniciar las transmisiones sin sonido.';
+   selected.forEach((item,index)=>{
+    const stream=streams[streams.length-selected.length+index];
+    const card=dashboard.querySelector('[data-id="'+stream.id+'"]');
+    const wrap=card?.querySelector('.player-wrap');
+    if(card&&wrap)startPlayer(stream,wrap,card);
+   });
+   toast(selected.length+' paneles creados; iniciando transmisiones'+(found.length>selected.length?'. Hay '+(found.length-selected.length)+' canales adicionales.':'.'));
   }else{
    addStream(url.pathname.split('/').pop()||'Transmisión HLS',url.href);
   }
