@@ -295,7 +295,7 @@ function closeChannelBrowser(){
  channelDropdown.setAttribute('aria-expanded','false');
  channelDropdown.textContent='Lista de Canales ▾';
  ledriumBtn.setAttribute('aria-expanded','false');
- ledriumBtn.textContent='Cámaras Ledrium';
+ ledriumBtn.textContent='Cámaras Ledrium ▾';
 }
 channelDropdown.onclick=()=>{
  if(channelBrowser.hidden){
