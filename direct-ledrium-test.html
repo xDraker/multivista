@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Prueba directa Ledrium · Multivista</title>
+<style>
+body{font:16px system-ui,sans-serif;max-width:760px;margin:32px auto;padding:0 16px;background:#111;color:#eee}
+button,select{font:inherit;padding:10px 14px;border-radius:8px;border:1px solid #555;background:#252525;color:#fff}
+video{width:100%;max-height:65vh;background:#000;margin-top:16px}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#202020;padding:14px;border-radius:8px;min-height:100px}
+.ok{color:#7ee787}.bad{color:#ff7b72}
+</style>
+</head>
+<body>
+<h1>Prueba directa de Ledrium</h1>
+<p>Esta página intenta negociar WHEP desde este dominio directamente con <code>ledrium.live</code>, sin pasar por Render.</p>
+<label for="cam">Cámara </label>
+<select id="cam">
+<option value="cam1">Tobalaba · MUT</option><option value="cam2">Costanera Center</option><option value="cam3">Luis Thayer Ojeda</option><option value="cam2_botanico">Peñalolén Norte</option><option value="cam1_botanico">Peñalolén Sur</option><option value="cam_ph">PPH CAM</option>
+</select>
+<button id="start">Probar conexión directa</button>
+<button id="stop" disabled>Detener</button>
+<video id="video" autoplay playsinline controls muted></video>
+<pre id="log">Listo. Pulsa “Probar conexión directa”.</pre>
+<script>
+const BASE='https://ledrium.live';
+const logEl=document.querySelector('#log'),video=document.querySelector('#video');
+let pc=null,sessionUrl=null;
+function log(msg,cls=''){const line=document.createElement('div');line.textContent=new Date().toLocaleTimeString()+' · '+msg;if(cls)line.className=cls;logEl.append(line)}
+async function stop(){
+ if(sessionUrl){try{await fetch(sessionUrl,{method:'DELETE',mode:'cors'})}catch(e){log('No se pudo cerrar sesión WHEP: '+e.message,'bad')}}
+ sessionUrl=null;
+ if(pc){pc.close();pc=null}
+ video.srcObject=null;
+ document.querySelector('#stop').disabled=true;
+}
+document.querySelector('#stop').onclick=stop;
+document.querySelector('#start').onclick=async()=>{
+ await stop();logEl.textContent='';
+ const id=document.querySelector('#cam').value;
+ try{
+  log('Consultando configuración ICE directamente...');
+  const ir=await fetch(BASE+'/api/stream/ice',{mode:'cors',cache:'no-store'});
+  if(!ir.ok)throw new Error('ICE HTTP '+ir.status);
+  const ice=await ir.json();log('ICE recibido. CORS GET permitido.','ok');
+  pc=new RTCPeerConnection({iceServers:Array.isArray(ice.iceServers)?ice.iceServers:[]});
+  pc.addTransceiver('video',{direction:'recvonly'});pc.addTransceiver('audio',{direction:'recvonly'});
+  pc.ontrack=e=>{video.srcObject=e.streams[0]||new MediaStream([e.track]);video.play().catch(()=>{});log('Pista multimedia recibida.','ok')};
+  pc.onconnectionstatechange=()=>log('WebRTC: '+pc.connectionState,pc.connectionState==='connected'?'ok':'');
+  const offer=await pc.createOffer();await pc.setLocalDescription(offer);
+  await new Promise(resolve=>{if(pc.iceGatheringState==='complete')return resolve();const t=setTimeout(resolve,10000);pc.addEventListener('icegatheringstatechange',()=>{if(pc.iceGatheringState==='complete'){clearTimeout(t);resolve()}},{once:false})});
+  log('Enviando POST application/sdp a /whep/'+id+' (esto prueba el preflight CORS)...');
+  const response=await fetch(BASE+'/api/stream/whep/'+id,{method:'POST',mode:'cors',headers:{'Content-Type':'application/sdp','Accept':'application/sdp'},body:pc.localDescription.sdp});
+  if(!response.ok)throw new Error('WHEP HTTP '+response.status+' '+(await response.text()).slice(0,180));
+  const location=response.headers.get('Location');
+  if(location)sessionUrl=new URL(location,BASE).href;
+  const answer=await response.text();
+  log('POST WHEP aceptado (HTTP '+response.status+'). CORS para POST permitido.','ok');
+  await pc.setRemoteDescription({type:'answer',sdp:answer});
+  document.querySelector('#stop').disabled=false;
+  log('Respuesta SDP aplicada. Esperando vídeo...','ok');
+ }catch(e){
+  log('FALLO: '+e.message,'bad');
+  if(String(e).includes('Failed to fetch')||String(e).includes('NetworkError'))log('El navegador suele mostrar este error cuando CORS/preflight bloquea la petición o hay un problema de red/TLS. Revisa la consola del navegador para distinguirlo.','bad');
+  if(pc){pc.close();pc=null}
+ }
+};
+window.addEventListener('pagehide',()=>{if(sessionUrl)fetch(sessionUrl,{method:'DELETE',keepalive:true}).catch(()=>{});if(pc)pc.close()});
+</script>
+</body></html>
