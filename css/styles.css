@@ -102,3 +102,12 @@ body.fit-fill .player-wrap video{object-fit:fill}
  .toolbar-menu{top:calc(100% + 5px);left:0;right:0;width:100%;min-width:0}
  .toolbar-menu .button{width:100%;min-height:40px}
 }
+
+
+/* Estados de transmisión: colores semánticos */
+.panel-state{transition:color .18s ease}
+.panel-state.status-live{color:#39c889}
+.panel-state.status-connecting{color:#60a5fa}
+.panel-state.status-waiting{color:#38bdf8}
+.panel-state.status-recovering{color:#fbbf24}
+.panel-state.status-error,.panel-state.status-disconnected{color:#f05252}
