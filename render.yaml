@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: multivista-ledrium-proxy
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: whep-proxy
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /healthz
+    autoDeploy: true
