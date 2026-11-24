@@ -73,3 +73,12 @@ body.clean-view .panel,.clean-view .panel.small,.clean-view .panel.wide,.clean-v
 .channel-item.channel-available{border:1px solid #39c889;box-shadow:inset 0 0 0 1px #39c88933;cursor:pointer;transition:background .15s,border-color .15s}
 .channel-item.channel-available:hover{background:#10251f;border-color:#65e6aa;box-shadow:inset 0 0 0 1px #65e6aa66,0 0 10px #39c88922}
 .channel-item.channel-available:focus-within{outline:2px solid #65e6aa;outline-offset:2px}
+
+
+/* Ajuste de encuadre: conservar proporción 16:9 del contenido en escritorio */
+@media(min-width:851px){
+  .dashboard{height:auto!important;grid-template-rows:none!important;align-items:start}
+  .dashboard .panel{height:auto!important;min-height:0}
+  .player-wrap{flex:0 0 auto;aspect-ratio:16/9;min-height:0}
+  .player-wrap video{object-fit:contain;background:#05080e}
+}
