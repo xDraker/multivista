@@ -82,3 +82,6 @@ body.clean-view .panel,.clean-view .panel.small,.clean-view .panel.wide,.clean-v
   .player-wrap{flex:0 0 auto;aspect-ratio:16/9;min-height:0}
   .player-wrap video{object-fit:contain;background:#05080e}
 }
+
+/* Modo de ajuste alternativo: llenar el panel sin conservar la proporción */
+body.fit-fill .player-wrap video{object-fit:fill}
