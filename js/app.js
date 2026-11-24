@@ -193,15 +193,15 @@ const channelBrowser=document.querySelector('#channelBrowser');
 channelDropdown.onclick=()=>{
  if(channelBrowser.hidden){
   channelDropdown.setAttribute('aria-expanded','true');
-  channelDropdown.textContent='Canales TV Chile ▴';
+  channelDropdown.textContent='Lista de Canales ▴';
   showRemoteChannels('https://raw.githubusercontent.com/xDraker/TV_Chile_Grabable/refs/heads/main/TV%20Chile%20Grabable');
  }else{
   channelBrowser.hidden=true;
   channelDropdown.setAttribute('aria-expanded','false');
-  channelDropdown.textContent='Canales TV Chile ▾';
+  channelDropdown.textContent='Lista de Canales ▾';
  }
 };
-document.querySelector('#hideChannelsBtn').onclick=()=>{document.querySelector('#channelBrowser').hidden=true;channelDropdown.setAttribute('aria-expanded','false');channelDropdown.textContent='Canales TV Chile ▾'};
+document.querySelector('#hideChannelsBtn').onclick=()=>{document.querySelector('#channelBrowser').hidden=true;channelDropdown.setAttribute('aria-expanded','false');channelDropdown.textContent='Lista de Canales ▾'};
 
 
 document.querySelector('#addBtn').onclick=toggleDialog;
