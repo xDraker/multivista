@@ -302,7 +302,7 @@ channelDropdown.onclick=()=>{
  }
 };
 
-document.querySelector('#ledriumBtn').onclick=()=>showRemoteChannels('https://raw.githubusercontent.com/xDraker/multivista/refs/heads/main/ledrium-cameras.m3u');
+document.querySelector('#ledriumBtn').onclick=()=>showRemoteChannels(new URL('ledrium-cameras.m3u',window.location.href).href);
 document.querySelector('#hideChannelsBtn').onclick=()=>{document.querySelector('#channelBrowser').hidden=true;channelDropdown.setAttribute('aria-expanded','false');channelDropdown.textContent='Lista de Canales ▾'};
 document.querySelector('#refreshChannelsBtn').onclick=()=>showRemoteChannels(activeChannelListUrl);
 
