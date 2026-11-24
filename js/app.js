@@ -26,8 +26,8 @@ function startPlayer(s,wrap,card){destroyPlayer(s.id);wrap.innerHTML='';const st
 if(kind==='youtube'){const host=document.createElement('div');host.id='yt-'+s.id;host.style.cssText='position:absolute;inset:0';wrap.append(host);const create=()=>{const player=new YT.Player(host.id,{videoId:youtubeId(s.url),width:'100%',height:'100%',playerVars:{autoplay:1,controls:1,playsinline:1,rel:0,modestbranding:1},events:{onReady:e=>{if(s.muted)e.target.mute();else e.target.unMute();state.textContent='● YOUTUBE'},onStateChange:e=>{state.textContent=e.data===1?'● EN VIVO / REPRODUCIENDO':e.data===3?'● CARGANDO':e.data===0?'● FINALIZADO':'● YOUTUBE'},onError:()=>{state.textContent='● NO DISPONIBLE';toast('YouTube no permite reproducir este vídeo incrustado')}}});players.set(s.id,{player})};if(window.YT?.Player)create();else window.onYouTubeIframeAPIReady=()=>create();
 }else{const video=document.createElement('video');video.controls=true;video.autoplay=true;video.playsInline=true;video.muted=s.muted;wrap.append(video);const entry={video};players.set(s.id,entry);if(kind==='mpegts'&&window.mpegts?.isSupported()){const player=mpegts.createPlayer({type:'mpegts',url:s.url,isLive:true});player.attachMediaElement(video);player.load();player.play().catch(()=>{});entry.mpegts=player;state.textContent='● MPEG-TS'}else if(kind==='mpegts'){state.textContent='● NO COMPATIBLE';toast('Este navegador no admite reproducción MPEG-TS')}else if(kind==='hls'){if(video.canPlayType('application/vnd.apple.mpegurl'))video.src=s.url;else if(window.Hls?.isSupported()){const hls=new Hls({enableWorker:true,capLevelToPlayerSize:true});hls.loadSource(s.url);hls.attachMedia(video);hls.on(Hls.Events.MANIFEST_PARSED,()=>{state.textContent='● HLS';video.play().catch(()=>toast('Presiona reproducir en el vídeo'))});hls.on(Hls.Events.ERROR,(_,data)=>{if(data.fatal){state.textContent='● ERROR DE FUENTE';toast('No se pudo cargar HLS. Revisa URL y CORS')}});entry.hls=hls}else{state.textContent='● NO COMPATIBLE';toast('Este navegador no admite HLS')}}else{video.src=s.url;video.addEventListener('loadedmetadata',()=>state.textContent='● CONECTADO',{once:true});video.addEventListener('error',()=>{state.textContent='● ERROR';toast('No se pudo reproducir esta URL')})}video.play().catch(()=>{})}}
 
-async function importRemotePlaylist(){
- const raw=prompt('Pega la URL pública de la lista .m3u o .m3u8:');
+async function importRemotePlaylist(presetUrl){
+ const raw=presetUrl||prompt('Pega la URL pública de la lista .m3u o .m3u8:');
  if(!raw)return;
  let url;
  try{
@@ -119,6 +119,8 @@ async function importRemotePlaylist(){
 }
 function toggleDialog(){document.querySelector('#streamName').value='';document.querySelector('#streamUrl').value='';dialog.showModal()}
 document.querySelector('#remoteM3uBtn').onclick=importRemotePlaylist;
+document.querySelector('#loadPlaylistBtn').onclick=()=>{const select=document.querySelector('#playlistSelect');if(!select.value){toast('Selecciona una lista primero');return}importRemotePlaylist(select.value)};
+
 document.querySelector('#addBtn').onclick=toggleDialog;document.querySelector('#emptyAddBtn').onclick=toggleDialog;document.querySelector('#closeDialog').onclick=()=>dialog.close();document.querySelector('#cancelDialog').onclick=()=>dialog.close();
 form.addEventListener('submit',e=>{e.preventDefault();addStream(document.querySelector('#streamName').value,document.querySelector('#streamUrl').value.trim());dialog.close()});
 document.querySelector('#editBtn').onclick=()=>{editMode=!editMode;document.body.classList.toggle('edit-mode',editMode);dashboard.querySelectorAll('.panel').forEach(card=>card.draggable=editMode);document.querySelector('#editBtn').textContent=editMode?'Terminar edición':'Editar diseño';toast(editMode?'Arrastra los paneles para reordenarlos':'Edición finalizada')};
