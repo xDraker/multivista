@@ -1,0 +1,9 @@
+{
+  "name": "Multivista",
+  "short_name": "Multivista",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#090e18",
+  "theme_color": "#090e18",
+  "icons": []
+}
