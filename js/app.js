@@ -192,7 +192,9 @@ async function importRemotePlaylist(presetUrl){
 }
 function toggleDialog(){document.querySelector('#streamName').value='';document.querySelector('#streamUrl').value='';if(typeof dialog.showModal==='function')dialog.showModal();else dialog.setAttribute('open','')}
 document.querySelector('#remoteM3uBtn').onclick=()=>importRemotePlaylist();
+let activeChannelListUrl='https://raw.githubusercontent.com/xDraker/TV_Chile_Grabable/refs/heads/main/TV%20Chile%20Grabable';
 async function showRemoteChannels(rawUrl){
+ activeChannelListUrl=rawUrl;
  const browser=document.querySelector('#channelBrowser'),list=document.querySelector('#channelList'),label=document.querySelector('#channelListCount');
  browser.hidden=false;list.innerHTML='<div class="channel-loading">Cargando canales…</div>';
  browser.scrollIntoView({behavior:'smooth',block:'start'});
@@ -302,7 +304,7 @@ channelDropdown.onclick=()=>{
 
 document.querySelector('#ledriumBtn').onclick=()=>showRemoteChannels('https://raw.githubusercontent.com/xDraker/multivista/refs/heads/main/ledrium-cameras.m3u');
 document.querySelector('#hideChannelsBtn').onclick=()=>{document.querySelector('#channelBrowser').hidden=true;channelDropdown.setAttribute('aria-expanded','false');channelDropdown.textContent='Lista de Canales ▾'};
-document.querySelector('#refreshChannelsBtn').onclick=()=>showRemoteChannels('https://raw.githubusercontent.com/xDraker/TV_Chile_Grabable/refs/heads/main/TV%20Chile%20Grabable');
+document.querySelector('#refreshChannelsBtn').onclick=()=>showRemoteChannels(activeChannelListUrl);
 
 
 document.querySelector('#addBtn').onclick=toggleDialog;
