@@ -85,3 +85,7 @@ body.clean-view .panel,.clean-view .panel.small,.clean-view .panel.wide,.clean-v
 
 /* Modo de ajuste alternativo: llenar el panel sin conservar la proporción */
 body.fit-fill .player-wrap video{object-fit:fill}
+
+/* Canales que ya están abiertos en un panel: visibles pero no seleccionables */
+.channel-item.channel-in-use{opacity:.48;filter:saturate(.55);cursor:not-allowed;border-color:#526174;background:#17202d}
+.channel-item .channel-status{font-size:9px;color:#9aa8ba;font-weight:700;letter-spacing:.5px}
