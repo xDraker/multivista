@@ -49,3 +49,20 @@ button{ -webkit-appearance:none; appearance:none }
  .file-button{isolation:isolate}
  .file-button input{z-index:3}
 }
+
+/* Vista limpia: conservar únicamente los controles superiores solicitados */
+body.clean-view .brand,
+body.clean-view #streamCount,
+body.clean-view .toolbar,
+body.clean-view #playlistInfo,
+body.clean-view #channelBrowser,
+body.clean-view .panel-head,
+body.clean-view .panel-foot,
+body.clean-view footer{display:none!important}
+body.clean-view .topbar{justify-content:flex-end;min-height:54px;padding-top:6px;padding-bottom:6px}
+body.clean-view .top-actions{margin-left:auto}
+body.clean-view main{padding-top:6px}
+body.clean-view .dashboard{height:calc(100vh - 66px)!important;min-height:0!important;gap:6px!important}
+body.clean-view .panel{min-height:0!important}
+body.clean-view .player-wrap{height:100%!important;min-height:0!important}
+body.clean-view .panel,.clean-view .panel.small,.clean-view .panel.wide,.clean-view .panel.full{grid-column:auto!important;grid-row:auto!important}
