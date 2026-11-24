@@ -36,7 +36,7 @@ async function importRemotePlaylist(presetUrl){
  if(!raw)return;
  let url;
  try{
-  url=new URL(raw.trim());
+  url=new URL(String(raw ?? '').trim());
   if(!/^https?:$/.test(url.protocol))throw new Error('La dirección debe comenzar con http:// o https://');
  }catch(err){toast(err.message||'URL no válida');return}
  const available=6-streams.length;
@@ -153,7 +153,7 @@ async function showRemoteChannels(rawUrl){
   if(!textContent.trim().startsWith('#EXTM3U'))throw new Error('El archivo no contiene una lista M3U válida');
   const channels=[];let name='';
   for(const raw of textContent.split(/\r?\n/)){
-   const line=raw.trim();if(!line)continue;
+   const line=String(raw ?? '').trim();if(!line)continue;
    if(line.startsWith('#EXTINF')){const comma=line.indexOf(',');name=comma>=0?line.slice(comma+1).trim():'Canal '+(channels.length+1);continue}
    if(line.startsWith('#'))continue;
    try{const streamUrl=new URL(line,u.href);if(/^https?:$/.test(streamUrl.protocol)){channels.push({name:name||'Canal '+(channels.length+1),url:streamUrl.href});name=''}}catch{}
@@ -206,5 +206,5 @@ form.addEventListener('submit',e=>{e.preventDefault();addStream(document.querySe
 document.querySelector('#editBtn').onclick=()=>{editMode=!editMode;document.body.classList.toggle('edit-mode',editMode);dashboard.querySelectorAll('.panel').forEach(card=>card.draggable=editMode);document.querySelector('#editBtn').textContent=editMode?'Terminar edición':'Editar diseño';toast(editMode?'Arrastra los paneles para reordenarlos':'Edición finalizada')};
 document.querySelector('#fullscreenBtn').onclick=()=>{if(!document.fullscreenElement)document.documentElement.requestFullscreen?.();else document.exitFullscreen?.()};
 document.querySelector('#saveBtn').onclick=()=>{save();toast('Distribución guardada en este dispositivo')};
-document.querySelector('#m3uFile').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;try{const text=await file.text();const lines=text.split(/\r?\n/);let name='';const found=[];for(const raw of lines){const line=raw.trim();if(!line)continue;if(line.startsWith('#EXTINF')){name=line.split(',').slice(1).join(',').trim()||'Canal '+(found.length+1);continue}if(line.startsWith('#'))continue;if(/^https?:\/\//i.test(line)){found.push({name:name||'Canal '+(found.length+1),url:line});name=''}}if(!found.length){toast('No encontré enlaces HTTP/HTTPS en la lista');return}let added=0;for(const item of found.slice(0,6-streams.length)){addStream(item.name,item.url);added++}document.querySelector('#playlistInfo').hidden=false;document.querySelector('#playlistInfo').textContent='Lista '+file.name+': '+found.length+' fuentes encontradas, '+added+' paneles agregados. Puedes añadir más canales después.';toast(added+' fuentes importadas');}catch(err){toast('No se pudo leer el archivo M3U')}e.target.value=''});
+document.querySelector('#m3uFile').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;try{const text=await file.text();const lines=text.split(/\r?\n/);let name='';const found=[];for(const raw of lines){const line=String(raw ?? '').trim();if(!line)continue;if(line.startsWith('#EXTINF')){name=line.split(',').slice(1).join(',').trim()||'Canal '+(found.length+1);continue}if(line.startsWith('#'))continue;if(/^https?:\/\//i.test(line)){found.push({name:name||'Canal '+(found.length+1),url:line});name=''}}if(!found.length){toast('No encontré enlaces HTTP/HTTPS en la lista');return}let added=0;for(const item of found.slice(0,6-streams.length)){addStream(item.name,item.url);added++}document.querySelector('#playlistInfo').hidden=false;document.querySelector('#playlistInfo').textContent='Lista '+file.name+': '+found.length+' fuentes encontradas, '+added+' paneles agregados. Puedes añadir más canales después.';toast(added+' fuentes importadas');}catch(err){toast('No se pudo leer el archivo M3U')}e.target.value=''});
 load();
