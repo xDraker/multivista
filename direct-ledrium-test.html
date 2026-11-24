@@ -20,11 +20,13 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#202020;padding:14px;
 <option value="cam1">Tobalaba · MUT</option><option value="cam2">Costanera Center</option><option value="cam3">Luis Thayer Ojeda</option><option value="cam2_botanico">Peñalolén Norte</option><option value="cam1_botanico">Peñalolén Sur</option><option value="cam_ph">PPH CAM</option>
 </select>
 <button id="start">Probar conexión directa</button>
+<button id="proxy">Probar mediante Render</button>
 <button id="stop" disabled>Detener</button>
 <video id="video" autoplay playsinline controls muted></video>
 <pre id="log">Listo. Pulsa “Probar conexión directa”.</pre>
 <script>
-const BASE='https://ledrium.live';
+const DIRECT='https://ledrium.live';
+const PROXY='https://multivista-ledrium-proxy.onrender.com';
 const logEl=document.querySelector('#log'),video=document.querySelector('#video');
 let pc=null,sessionUrl=null;
 function log(msg,cls=''){const line=document.createElement('div');line.textContent=new Date().toLocaleTimeString()+' · '+msg;if(cls)line.className=cls;logEl.append(line)}
@@ -36,9 +38,10 @@ async function stop(){
  document.querySelector('#stop').disabled=true;
 }
 document.querySelector('#stop').onclick=stop;
-document.querySelector('#start').onclick=async()=>{
+async function runTest(BASE,label){
  await stop();logEl.textContent='';
  const id=document.querySelector('#cam').value;
+ log('Ruta: '+label);
  try{
   log('Consultando configuración ICE directamente...');
   const ir=await fetch(BASE+'/api/stream/ice',{mode:'cors',cache:'no-store'});
@@ -65,7 +68,9 @@ document.querySelector('#start').onclick=async()=>{
   if(String(e).includes('Failed to fetch')||String(e).includes('NetworkError'))log('El navegador suele mostrar este error cuando CORS/preflight bloquea la petición o hay un problema de red/TLS. Revisa la consola del navegador para distinguirlo.','bad');
   if(pc){pc.close();pc=null}
  }
-};
+}
+document.querySelector('#start').onclick=()=>runTest(DIRECT,'directa a ledrium.live');
+document.querySelector('#proxy').onclick=()=>runTest(PROXY,'proxy Render');
 window.addEventListener('pagehide',()=>{if(sessionUrl)fetch(sessionUrl,{method:'DELETE',keepalive:true}).catch(()=>{});if(pc)pc.close()});
 </script>
 </body></html>
