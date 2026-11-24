@@ -66,3 +66,5 @@ body.clean-view .dashboard{height:calc(100vh - 66px)!important;min-height:0!impo
 body.clean-view .panel{min-height:0!important}
 body.clean-view .player-wrap{height:100%!important;min-height:0!important}
 body.clean-view .panel,.clean-view .panel.small,.clean-view .panel.wide,.clean-view .panel.full{grid-column:auto!important;grid-row:auto!important}
+
+.replace-panel-list{display:grid;grid-template-columns:1fr;gap:8px;max-height:55vh;overflow:auto}.replace-panel-option{display:flex;flex-direction:column;align-items:flex-start;gap:5px;padding:11px 12px;border:1px solid var(--line);border-radius:8px;background:#0d1624;color:var(--text);text-align:left;cursor:pointer}.replace-panel-option:hover{border-color:var(--accent);background:#142438}.replace-panel-option strong{font-size:12px}.replace-panel-option small{font-size:10px;color:var(--muted);max-width:100%;overflow-wrap:anywhere}.channel-browser-actions{display:flex;gap:8px;flex-wrap:wrap}@media(max-width:520px){.channel-browser-actions{width:100%}.channel-browser-actions .button{flex:1}}
