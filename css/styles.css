@@ -89,3 +89,31 @@ body.fit-fill .player-wrap video{object-fit:fill}
 /* Canales que ya están abiertos en un panel: visibles pero no seleccionables */
 .channel-item.channel-in-use{opacity:.48;filter:saturate(.55);cursor:not-allowed;border-color:#526174;background:#17202d}
 .channel-item .channel-status{font-size:9px;color:#9aa8ba;font-weight:700;letter-spacing:.5px}
+
+
+/* Menús desplegables de acciones de la barra */
+.toolbar-dropdown{position:relative;display:inline-flex;align-items:center}
+.toolbar-menu{position:absolute;top:calc(100% + 7px);left:0;display:flex;flex-direction:column;align-items:stretch;gap:7px;min-width:180px;padding:7px;background:#111a29;border:1px solid var(--line);border-radius:9px;box-shadow:0 10px 28px #000b;z-index:20}
+.toolbar-menu[hidden]{display:none}
+.toolbar-menu .button{min-height:36px}
+@media(max-width:850px){
+ .toolbar-dropdown{width:100%;min-width:0}
+ .toolbar-dropdown>.button{width:100%;min-height:42px}
+ .toolbar-menu{top:calc(100% + 5px);left:0;right:0;width:100%;min-width:0}
+ .toolbar-menu .button{width:100%;min-height:40px}
+}
+
+
+/* Estados de transmisión: colores semánticos */
+.panel-state{transition:color .18s ease}
+.panel-state.status-live{color:#39c889}
+.panel-state.status-connecting{color:#60a5fa}
+.panel-state.status-waiting{color:#38bdf8}
+.panel-state.status-recovering{color:#fbbf24}
+.panel-state.status-error,.panel-state.status-disconnected{color:#f05252}
+
+/* Evitar que el menú de Opciones se salga del borde derecho */
+@media(min-width:851px){#optionsMenu{left:auto;right:0}}
+
+/* Fallback IPTV mediante proxy HTTPS */
+.panel-state.status-proxy{color:#38bdf8}
