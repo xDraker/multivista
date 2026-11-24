@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#090e18">
+  <meta name="description" content="Multivista: panel de monitoreo para YouTube y listas M3U.">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="css/styles.css">
+  <title>Multivista</title>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="./"><span class="brand-mark">M</span><span>MULTIVISTA<small>LIVE MONITOR</small></span></a>
+    <div class="top-actions">
+      <span id="streamCount" class="count">0 / 6 PANELES</span>
+      <button id="editBtn" class="button secondary">Editar diseño</button>
+      <button id="fullscreenBtn" class="button secondary" title="Pantalla completa">⛶</button>
+    </div>
+  </header>
+  <main>
+    <section class="toolbar">
+      <div class="toolbar-title"><span class="live-dot"></span><div><strong>Centro de monitoreo</strong><small>YouTube · M3U · HLS</small></div></div>
+      <div class="toolbar-actions">
+        <button id="addBtn" class="button primary">＋ Agregar panel</button>
+        <label class="button secondary file-button">Importar lista .m3u<input id="m3uFile" type="file" accept=".m3u,.m3u8,audio/x-mpegurl,application/vnd.apple.mpegurl"></label>
+        <button id="saveBtn" class="button secondary">Guardar vista</button>
+      </div>
+    </section>
+    <section id="playlistInfo" class="playlist-info" hidden></section>
+    <section id="dashboard" class="dashboard" aria-live="polite"></section>
+    <section id="emptyState" class="empty-state">
+      <div class="empty-icon">▣</div><h2>Tu multivista está lista</h2>
+      <p>Agrega un enlace de YouTube o importa una lista M3U para comenzar.</p>
+      <button class="button primary" id="emptyAddBtn">＋ Agregar primera transmisión</button>
+    </section>
+    <footer><span>Multivista 1.0</span><span>La configuración se guarda en este dispositivo</span></footer>
+  </main>
+  <dialog id="addDialog" class="dialog">
+    <form id="addForm" method="dialog">
+      <div class="dialog-head"><div><h2>Agregar transmisión</h2><p>Usa un enlace de YouTube o una URL de vídeo/HLS.</p></div><button type="button" class="icon-button" id="closeDialog">×</button></div>
+      <label for="streamName">Nombre del panel</label><input id="streamName" placeholder="Ej. Cámara acceso norte">
+      <label for="streamUrl">URL de transmisión</label><input id="streamUrl" required placeholder="https://youtube.com/watch?v=...">
+      <div class="dialog-hint">Admite YouTube, enlaces .m3u8 y vídeo directo compatible con el navegador.</div>
+      <div class="dialog-actions"><button type="button" class="button secondary" id="cancelDialog">Cancelar</button><button class="button primary" type="submit">Agregar panel</button></div>
+    </form>
+  </dialog>
+  <div id="toast" class="toast" role="status"></div>
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.18/dist/hls.min.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
