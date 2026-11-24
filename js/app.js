@@ -62,8 +62,8 @@ async function startWhep(s,video,state,entry){
   video.play().catch(()=>{});
  };
  pc.onconnectionstatechange=()=>{
-  if(pc.connectionState==='connected')state.textContent='● WHEP EN VIVO';
-  else if(pc.connectionState==='failed'||pc.connectionState==='disconnected')state.textContent='● WHEP DESCONECTADO';
+  if(pc.connectionState==='connected')setPanelStatus(state,'● CONECTADO · ESPERANDO VIDEO','waiting');
+  else if(pc.connectionState==='failed'||pc.connectionState==='disconnected')setPanelStatus(state,'● DESCONECTADO','disconnected');
  };
  const offer=await pc.createOffer();
  await pc.setLocalDescription(offer);
@@ -92,12 +92,94 @@ async function startWhep(s,video,state,entry){
   pc.close();return;
  }
  await pc.setRemoteDescription({type:'answer',sdp:answer});
- state.textContent='● WHEP NEGOCIADO';
+ setPanelStatus(state,'● CONECTADO · ESPERANDO VIDEO','waiting');
 }
 
-function startPlayer(s,wrap,card){destroyPlayer(s.id);wrap.innerHTML='';const state=card.querySelector('.panel-state');state.textContent='● CONECTANDO';const kind=classify(s.url);
-if(kind==='youtube'){const host=document.createElement('div');host.id='yt-'+s.id;host.style.cssText='position:absolute;inset:0';wrap.append(host);const create=()=>{const player=new YT.Player(host.id,{videoId:youtubeId(s.url),width:'100%',height:'100%',playerVars:{autoplay:1,controls:1,playsinline:1,rel:0,modestbranding:1},events:{onReady:e=>{if(s.muted)e.target.mute();else e.target.unMute();state.textContent='● YOUTUBE'},onStateChange:e=>{state.textContent=e.data===1?'● EN VIVO / REPRODUCIENDO':e.data===3?'● CARGANDO':e.data===0?'● FINALIZADO':'● YOUTUBE'},onError:()=>{state.textContent='● NO DISPONIBLE';toast('YouTube no permite reproducir este vídeo incrustado')}}});players.set(s.id,{player})};if(window.YT?.Player)create();else window.onYouTubeIframeAPIReady=()=>create();
-}else if(kind==='whep'){const video=document.createElement('video');video.controls=true;video.autoplay=true;video.playsInline=true;video.muted=s.muted;wrap.append(video);const entry={video};players.set(s.id,entry);video.addEventListener('volumechange',()=>{const nowMuted=video.muted;if(s.muted!==nowMuted){s.muted=nowMuted;save();updateMuteButton(s,card)}});startWhep(s,video,state,entry).catch(error=>{if(players.get(s.id)===entry){destroyPlayer(s.id);state.textContent='● ERROR WHEP';toast('No se pudo abrir '+s.name+': '+error.message)}})}else{const video=document.createElement('video');video.controls=true;video.autoplay=true;video.playsInline=true;video.muted=s.muted;wrap.append(video);const entry={video};players.set(s.id,entry);video.addEventListener('volumechange',()=>{const nowMuted=video.muted;if(s.muted!==nowMuted){s.muted=nowMuted;save();updateMuteButton(s,card)}});if(kind==='mpegts'&&window.mpegts?.isSupported()){const player=mpegts.createPlayer({type:'mpegts',url:s.url,isLive:true});player.attachMediaElement(video);player.load();player.play().catch(()=>{});entry.mpegts=player;state.textContent='● MPEG-TS'}else if(kind==='mpegts'){state.textContent='● NO COMPATIBLE';toast('Este navegador no admite reproducción MPEG-TS')}else if(kind==='hls'){if(video.canPlayType('application/vnd.apple.mpegurl'))video.src=s.url;else if(window.Hls?.isSupported()){const hls=new Hls({enableWorker:true,capLevelToPlayerSize:true});hls.loadSource(s.url);hls.attachMedia(video);hls.on(Hls.Events.MANIFEST_PARSED,()=>{state.textContent='● HLS';video.play().catch(()=>toast('Presiona reproducir en el vídeo'))});hls.on(Hls.Events.ERROR,(_,data)=>{if(data.fatal){state.textContent='● ERROR DE FUENTE';toast('No se pudo cargar HLS. Revisa URL y CORS')}});entry.hls=hls}else{state.textContent='● NO COMPATIBLE';toast('Este navegador no admite HLS')}}else{video.src=s.url;video.addEventListener('loadedmetadata',()=>state.textContent='● CONECTADO',{once:true});video.addEventListener('error',()=>{state.textContent='● ERROR';toast('No se pudo reproducir esta URL')})}video.play().catch(()=>{})}}
+function setPanelStatus(state,text,status){state.textContent=text;state.classList.remove('status-live','status-connecting','status-waiting','status-recovering','status-error','status-disconnected');if(status)state.classList.add('status-'+status)}
+function trackVideoState(video,state){let hasPlayed=false;video.addEventListener('playing',()=>{hasPlayed=true;setPanelStatus(state,'● EN VIVO','live')});video.addEventListener('waiting',()=>{setPanelStatus(state,hasPlayed?'● RECUPERANDO SEÑAL':'● CONECTANDO',hasPlayed?'recovering':'connecting')});video.addEventListener('stalled',()=>{setPanelStatus(state,hasPlayed?'● RECUPERANDO SEÑAL':'● CONECTANDO',hasPlayed?'recovering':'connecting')});video.addEventListener('error',()=>setPanelStatus(state,'● ERROR DE FUENTE','error'))}
+
+const IPTV_PROXY_BASE='https://multivista-ledrium-proxy.onrender.com';
+const IPTV_MODE_STORE='multivista-iptv-routes-v1';
+function getIptvRouteMemory(){try{return JSON.parse(localStorage.getItem(IPTV_MODE_STORE)||'{}')}catch{return {}}}
+function rememberIptvMode(url,mode){const data=getIptvRouteMemory();data[url]=mode;try{localStorage.setItem(IPTV_MODE_STORE,JSON.stringify(data))}catch{}}
+function getIptvProxyUrl(url){return IPTV_PROXY_BASE+'/iptv?url='+encodeURIComponent(url)}
+function startPlayer(s,wrap,card,options={}){
+ destroyPlayer(s.id);
+ wrap.innerHTML='';
+ const state=card.querySelector('.panel-state');
+ setPanelStatus(state,'● CONECTANDO','connecting');
+ const kind=classify(s.url);
+ if(kind==='youtube'){
+  const host=document.createElement('div');host.id='yt-'+s.id;host.style.cssText='position:absolute;inset:0';wrap.append(host);
+  const create=()=>{const player=new YT.Player(host.id,{videoId:youtubeId(s.url),width:'100%',height:'100%',playerVars:{autoplay:1,controls:1,playsinline:1,rel:0,modestbranding:1},events:{onReady:e=>{if(s.muted)e.target.mute();else e.target.unMute();setPanelStatus(state,'● CONECTADO · ESPERANDO VIDEO','waiting')},onStateChange:e=>{setPanelStatus(state,e.data===1?'● EN VIVO / REPRODUCIENDO':e.data===3?'● CARGANDO':e.data===0?'● FINALIZADO':'● YOUTUBE',e.data===1?'live':e.data===3?'connecting':'waiting')},onError:()=>{setPanelStatus(state,'● NO DISPONIBLE','error');toast('YouTube no permite reproducir este vídeo incrustado')}}});players.set(s.id,{player})};
+  if(window.YT?.Player)create();else window.onYouTubeIframeAPIReady=()=>create();
+  return;
+ }
+ if(kind==='whep'){
+  const video=document.createElement('video');video.controls=true;video.autoplay=true;video.playsInline=true;video.muted=s.muted;trackVideoState(video,state);wrap.append(video);
+  const entry={video};players.set(s.id,entry);
+  video.addEventListener('volumechange',()=>{const nowMuted=video.muted;if(s.muted!==nowMuted){s.muted=nowMuted;save();updateMuteButton(s,card)}});
+  startWhep(s,video,state,entry).catch(error=>{if(players.get(s.id)===entry){destroyPlayer(s.id);setPanelStatus(state,'● ERROR WHEP','error');toast('No se pudo abrir '+s.name+': '+error.message)}});
+  return;
+ }
+ const useProxy=options.useProxy===true;
+ const sourceUrl=useProxy?getIptvProxyUrl(s.url):s.url;
+ const video=document.createElement('video');
+ video.controls=true;video.autoplay=true;video.playsInline=true;video.muted=s.muted;
+ trackVideoState(video,state);wrap.append(video);
+ const entry={video,mode:useProxy?'proxy':'direct',fallbackTimer:null,fallbackStarted:false};
+ players.set(s.id,entry);
+ const cleanupTimer=()=>{if(entry.fallbackTimer){clearTimeout(entry.fallbackTimer);entry.fallbackTimer=null}};
+ const fallback=(reason)=>{
+  if(useProxy||entry.fallbackStarted||players.get(s.id)!==entry)return;
+  entry.fallbackStarted=true;cleanupTimer();
+  rememberIptvMode(s.url,'proxy');
+  toast('La conexión directa falló. Probando proxy para '+s.name+'…');
+  setPanelStatus(state,'● REINTENTANDO POR PROXY','recovering');
+  startPlayer(s,wrap,card,{useProxy:true});
+ };
+ video.addEventListener('playing',()=>{cleanupTimer();rememberIptvMode(s.url,useProxy?'proxy':'direct');if(useProxy)setPanelStatus(state,'● EN VIVO · PROXY','live')});
+ video.addEventListener('volumechange',()=>{const nowMuted=video.muted;if(s.muted!==nowMuted){s.muted=nowMuted;save();updateMuteButton(s,card)}});
+ video.addEventListener('loadedmetadata',()=>setPanelStatus(state,useProxy?'● PROXY · METADATOS OK':'● CONECTADO · ESPERANDO VIDEO','waiting'),{once:true});
+ video.addEventListener('error',()=>{if(!useProxy)fallback('video element error');else setPanelStatus(state,'● ERROR DE FUENTE / PROXY','error')});
+ if(!useProxy){
+  const remembered=getIptvRouteMemory()[s.url]==='proxy';
+  entry.fallbackTimer=setTimeout(()=>fallback('timeout'),remembered?6500:12000);
+ }
+ if(kind==='mpegts'&&window.mpegts?.isSupported()){
+  const player=mpegts.createPlayer({type:'mpegts',url:sourceUrl,isLive:true});
+  player.attachMediaElement(video);player.load();player.play().catch(()=>{});
+  entry.mpegts=player;
+  if(player.on&&window.mpegts.Events?.ERROR)player.on(window.mpegts.Events.ERROR,()=>fallback('mpegts network error'));
+  setPanelStatus(state,useProxy?'● CONECTANDO POR PROXY':'● CONECTANDO','connecting');
+ }else if(kind==='mpegts'){
+  setPanelStatus(state,'● NO COMPATIBLE','error');toast('Este navegador no admite reproducción MPEG-TS');
+ }else if(kind==='hls'){
+  if(video.canPlayType('application/vnd.apple.mpegurl'))video.src=sourceUrl;
+  else if(window.Hls?.isSupported()){
+   const hls=new Hls({enableWorker:true,capLevelToPlayerSize:true});
+   entry.hls=hls;hls.loadSource(sourceUrl);hls.attachMedia(video);
+   hls.on(Hls.Events.MANIFEST_PARSED,()=>{video.play().catch(()=>{})});
+   hls.on(Hls.Events.ERROR,(_,data)=>{
+    if(!data.fatal)return;
+    const networkFailure=data.type===Hls.ErrorTypes.NETWORK_ERROR||/manifestLoad|levelLoad|fragLoad|keyLoad|subtitleTrackLoad|audioTrackLoad/i.test(data.details||'');
+    if(networkFailure&&!useProxy){fallback(data.details||'hls network error');return}
+    if(data.type===Hls.ErrorTypes.MEDIA_ERROR&&!entry.mediaRecoveryTried){
+     entry.mediaRecoveryTried=true;try{hls.recoverMediaError();return}catch{}
+    }
+    setPanelStatus(state,useProxy?'● ERROR DE FUENTE / PROXY':'● ERROR DE FUENTE','error');
+    if(useProxy)toast('La fuente también falló mediante proxy: '+s.name);
+   });
+  }else{
+   setPanelStatus(state,'● NO COMPATIBLE','error');toast('Este navegador no admite HLS');
+  }
+ }else{
+  video.src=sourceUrl;
+ }
+ video.play().catch(()=>{});
+ if(useProxy)setPanelStatus(state,'● CONECTANDO POR PROXY','connecting');
+}
+
 
 async function importRemotePlaylist(presetUrl){
  const raw=presetUrl||prompt('Pega la URL pública de la lista .m3u o .m3u8:');
@@ -271,9 +353,7 @@ async function showRemoteChannels(rawUrl){
      const remaining=list.querySelectorAll('.channel-item').length;
      label.textContent=remaining+' canales disponibles · Selecciona uno para reproducir';
      if(streams.length>=6){
-      channelBrowser.hidden=true;
-      channelDropdown.setAttribute('aria-expanded','false');
-      channelDropdown.textContent='Lista de Canales ▾';
+      closeChannelBrowser();
      }
     };
     if(streams.length>=6){askPanelToReplace(channel,finishSelection);return}
@@ -290,20 +370,38 @@ async function showRemoteChannels(rawUrl){
 }
 const channelDropdown=document.querySelector('#channelDropdownBtn');
 const channelBrowser=document.querySelector('#channelBrowser');
+const ledriumBtn=document.querySelector('#ledriumBtn');
+const ledriumListUrl=new URL('ledrium-cameras.m3u',window.location.href).href;
+function closeChannelBrowser(){
+ channelBrowser.hidden=true;
+ channelDropdown.setAttribute('aria-expanded','false');
+ channelDropdown.textContent='Lista de Canales ▾';
+ ledriumBtn.setAttribute('aria-expanded','false');
+ ledriumBtn.textContent='Cámaras Ledrium ▾';
+}
 channelDropdown.onclick=()=>{
  if(channelBrowser.hidden){
+  closeChannelBrowser();
+  channelBrowser.hidden=false;
   channelDropdown.setAttribute('aria-expanded','true');
   channelDropdown.textContent='Lista de Canales ▴';
   showRemoteChannels('https://raw.githubusercontent.com/xDraker/TV_Chile_Grabable/refs/heads/main/TV%20Chile%20Grabable');
  }else{
-  channelBrowser.hidden=true;
-  channelDropdown.setAttribute('aria-expanded','false');
-  channelDropdown.textContent='Lista de Canales ▾';
+  closeChannelBrowser();
  }
 };
-
-document.querySelector('#ledriumBtn').onclick=()=>showRemoteChannels(new URL('ledrium-cameras.m3u',window.location.href).href);
-document.querySelector('#hideChannelsBtn').onclick=()=>{document.querySelector('#channelBrowser').hidden=true;channelDropdown.setAttribute('aria-expanded','false');channelDropdown.textContent='Lista de Canales ▾'};
+ledriumBtn.onclick=()=>{
+ if(!channelBrowser.hidden && activeChannelListUrl===ledriumListUrl){
+  closeChannelBrowser();
+  return;
+ }
+ closeChannelBrowser();
+ channelBrowser.hidden=false;
+ ledriumBtn.setAttribute('aria-expanded','true');
+ ledriumBtn.textContent='Cámaras Ledrium ▴';
+ showRemoteChannels(ledriumListUrl);
+};
+document.querySelector('#hideChannelsBtn').onclick=closeChannelBrowser;
 document.querySelector('#refreshChannelsBtn').onclick=()=>showRemoteChannels(activeChannelListUrl);
 
 
@@ -339,3 +437,24 @@ function autoplaySavedStreams(){
  }
 }
 autoplaySavedStreams();
+
+
+// Menús desplegables de acciones de la barra principal.
+function setupToolbarMenu(buttonId,menuId){
+ const button=document.querySelector('#'+buttonId),menu=document.querySelector('#'+menuId);
+ if(!button||!menu)return;
+ const close=()=>{menu.hidden=true;button.setAttribute('aria-expanded','false');button.textContent=button.textContent.replace('▴','▾')};
+ button.addEventListener('click',event=>{
+  event.stopPropagation();
+  const opening=menu.hidden;
+  document.querySelectorAll('.toolbar-menu').forEach(other=>{other.hidden=true});
+  document.querySelectorAll('.menu-trigger').forEach(trigger=>{trigger.setAttribute('aria-expanded','false');trigger.textContent=trigger.textContent.replace('▴','▾')});
+  menu.hidden=!opening;
+  button.setAttribute('aria-expanded',String(opening));
+  button.textContent=button.textContent.replace(opening?'▾':'▴',opening?'▴':'▾');
+ });
+ menu.addEventListener('click',event=>{if(event.target.closest('button')||event.target.closest('label'))close()});
+ document.addEventListener('click',event=>{if(!menu.contains(event.target)&&!button.contains(event.target))close()});
+}
+setupToolbarMenu('importMenuBtn','importMenu');
+setupToolbarMenu('optionsMenuBtn','optionsMenu');
