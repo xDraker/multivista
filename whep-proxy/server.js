@@ -48,7 +48,6 @@ const IPTV_ALLOWED_HOSTS = (process.env.IPTV_PROXY_ALLOWED_HOSTS || [
   'mdstrm.com','dps.live','dpsgo.com','rudo.video','making.cl',
   'intersurtv.cl','tlink.cl','senado.cl','15.204.196.147'
 ].join(',')).split(',').map(x => x.trim().toLowerCase()).filter(Boolean);
-const IPTV_PROXY_ORIGINS = (process.env.IPTV_PROXY_ORIGINS || '*').split(',').map(x=>x.trim()).filter(Boolean);
 
 function isPrivateIp(address) {
   if (net.isIPv4(address)) {
