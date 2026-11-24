@@ -1,7 +1,8 @@
 const STORE='multivista-v1';
 const dashboard=document.querySelector('#dashboard'),emptyState=document.querySelector('#emptyState'),countEl=document.querySelector('#streamCount'),dialog=document.querySelector('#addDialog'),form=document.querySelector('#addForm'),toastEl=document.querySelector('#toast');
 let streams=[],players=new Map(),editMode=false,toastTimer;
-let backgroundHost=null;\nfunction getBackgroundHost(){if(!backgroundHost){backgroundHost=document.createElement('div');backgroundHost.id='backgroundPlayers';backgroundHost.setAttribute('aria-hidden','true');backgroundHost.style.cssText='position:fixed;left:-10000px;top:0;width:640px;height:360px;overflow:hidden;pointer-events:none;z-index:-1';document.body.append(backgroundHost)}return backgroundHost}
+let backgroundHost=null;
+function getBackgroundHost(){if(!backgroundHost){backgroundHost=document.createElement('div');backgroundHost.id='backgroundPlayers';backgroundHost.setAttribute('aria-hidden','true');backgroundHost.style.cssText='position:fixed;left:-10000px;top:0;width:640px;height:360px;overflow:hidden;pointer-events:none;z-index:-1';document.body.append(backgroundHost)}return backgroundHost}
 function toast(msg){toastEl.textContent=msg;toastEl.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toastEl.classList.remove('show'),2600)}
 function id(){return 'p'+Math.random().toString(36).slice(2,10)}
 function youtubeId(url){try{const u=new URL(url);if(u.hostname.includes('youtu.be'))return u.pathname.slice(1).split('/')[0];if(u.hostname.includes('youtube.com')||u.hostname.includes('youtube-nocookie.com')){if(u.pathname==='/watch')return u.searchParams.get('v');const m=u.pathname.match(/\/(?:embed|live|shorts)\/([^/?]+)/);return m?.[1]||null}}catch{}return null}
