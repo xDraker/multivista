@@ -187,7 +187,16 @@ async function showRemoteChannels(rawUrl){
    item.classList.add('channel-available');
    item.title='Seleccionar '+channel.name;
    const chooseChannel=()=>{
-    const finishSelection=()=>{item.remove();const remaining=list.querySelectorAll('.channel-item').length;label.textContent=remaining+' canales disponibles · Selecciona uno para reproducir';};
+    const finishSelection=()=>{
+     item.remove();
+     const remaining=list.querySelectorAll('.channel-item').length;
+     label.textContent=remaining+' canales disponibles · Selecciona uno para reproducir';
+     if(streams.length>=6){
+      channelBrowser.hidden=true;
+      channelDropdown.setAttribute('aria-expanded','false');
+      channelDropdown.textContent='Lista de Canales ▾';
+     }
+    };
     if(streams.length>=6){askPanelToReplace(channel,finishSelection);return}
     const stream={id:id(),name:channel.name,url:channel.url,size:'medium',tall:false,muted:true};
     streams.push(stream);save();render();
