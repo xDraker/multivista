@@ -271,9 +271,7 @@ async function showRemoteChannels(rawUrl){
      const remaining=list.querySelectorAll('.channel-item').length;
      label.textContent=remaining+' canales disponibles · Selecciona uno para reproducir';
      if(streams.length>=6){
-      channelBrowser.hidden=true;
-      channelDropdown.setAttribute('aria-expanded','false');
-      channelDropdown.textContent='Lista de Canales ▾';
+      closeChannelBrowser();
      }
     };
     if(streams.length>=6){askPanelToReplace(channel,finishSelection);return}
@@ -290,20 +288,38 @@ async function showRemoteChannels(rawUrl){
 }
 const channelDropdown=document.querySelector('#channelDropdownBtn');
 const channelBrowser=document.querySelector('#channelBrowser');
+const ledriumBtn=document.querySelector('#ledriumBtn');
+const ledriumListUrl=new URL('ledrium-cameras.m3u',window.location.href).href;
+function closeChannelBrowser(){
+ channelBrowser.hidden=true;
+ channelDropdown.setAttribute('aria-expanded','false');
+ channelDropdown.textContent='Lista de Canales ▾';
+ ledriumBtn.setAttribute('aria-expanded','false');
+ ledriumBtn.textContent='Cámaras Ledrium';
+}
 channelDropdown.onclick=()=>{
  if(channelBrowser.hidden){
+  closeChannelBrowser();
+  channelBrowser.hidden=false;
   channelDropdown.setAttribute('aria-expanded','true');
   channelDropdown.textContent='Lista de Canales ▴';
   showRemoteChannels('https://raw.githubusercontent.com/xDraker/TV_Chile_Grabable/refs/heads/main/TV%20Chile%20Grabable');
  }else{
-  channelBrowser.hidden=true;
-  channelDropdown.setAttribute('aria-expanded','false');
-  channelDropdown.textContent='Lista de Canales ▾';
+  closeChannelBrowser();
  }
 };
-
-document.querySelector('#ledriumBtn').onclick=()=>showRemoteChannels(new URL('ledrium-cameras.m3u',window.location.href).href);
-document.querySelector('#hideChannelsBtn').onclick=()=>{document.querySelector('#channelBrowser').hidden=true;channelDropdown.setAttribute('aria-expanded','false');channelDropdown.textContent='Lista de Canales ▾'};
+ledriumBtn.onclick=()=>{
+ if(!channelBrowser.hidden && activeChannelListUrl===ledriumListUrl){
+  closeChannelBrowser();
+  return;
+ }
+ closeChannelBrowser();
+ channelBrowser.hidden=false;
+ ledriumBtn.setAttribute('aria-expanded','true');
+ ledriumBtn.textContent='Cámaras Ledrium ▴';
+ showRemoteChannels(ledriumListUrl);
+};
+document.querySelector('#hideChannelsBtn').onclick=closeChannelBrowser;
 document.querySelector('#refreshChannelsBtn').onclick=()=>showRemoteChannels(activeChannelListUrl);
 
 
