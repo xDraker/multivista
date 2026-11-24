@@ -4,12 +4,12 @@ let streams=[],players=new Map(),editMode=false,toastTimer;
 function toast(msg){toastEl.textContent=msg;toastEl.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toastEl.classList.remove('show'),2600)}
 function id(){return 'p'+Math.random().toString(36).slice(2,10)}
 function youtubeId(url){try{const u=new URL(url);if(u.hostname.includes('youtu.be'))return u.pathname.slice(1).split('/')[0];if(u.hostname.includes('youtube.com')||u.hostname.includes('youtube-nocookie.com')){if(u.pathname==='/watch')return u.searchParams.get('v');const m=u.pathname.match(/\/(?:embed|live|shorts)\/([^/?]+)/);return m?.[1]||null}}catch{}return null}
-function classify(url){if(youtubeId(url))return'youtube';if(/\.m3u8?(?:$|[?#])/i.test(url))return'hls';return'video'}
+function classify(url){if(youtubeId(url))return'youtube';if(/\.m3u8?(?:$|[?#])/i.test(url))return'hls';if(/\.ts(?:$|[?#])/i.test(url))return'mpegts';return'video'}
 function save(){localStorage.setItem(STORE,JSON.stringify(streams.map(({id,name,url,size,tall,muted})=>({id,name,url,size,tall,muted}))));}
 function load(){try{streams=JSON.parse(localStorage.getItem(STORE)||'[]').slice(0,6)}catch{streams=[]}render()}
 function addStream(name,url){if(streams.length>=6){toast('Máximo de 6 paneles');return}if(!url||!/^https?:\/\//i.test(url)){toast('Introduce una URL válida (http o https)');return}streams.push({id:id(),name:name.trim()||'Transmisión '+(streams.length+1),url,size:'medium',tall:false,muted:true});save();render();toast('Panel agregado')}
 function removeStream(pid){destroyPlayer(pid);streams=streams.filter(s=>s.id!==pid);save();render()}
-function destroyPlayer(pid){const p=players.get(pid);if(p){try{if(p.player?.destroy)p.player.destroy();if(p.hls)p.hls.destroy()}catch{}players.delete(pid)}}
+function destroyPlayer(pid){const p=players.get(pid);if(p){try{if(p.player?.destroy)p.player.destroy();if(p.hls)p.hls.destroy();if(p.mpegts)p.mpegts.destroy()}catch{}players.delete(pid)}}
 function render(){dashboard.innerHTML='';countEl.textContent=streams.length+' / 6 PANELES';emptyState.hidden=streams.length>0;for(const s of streams){const card=document.createElement('article');card.className='panel '+(s.size==='small'?'small':s.size==='wide'?'wide':s.size==='full'?'full':'')+(s.tall?' tall':'');card.dataset.id=s.id;card.draggable=editMode;
 const head=document.createElement('div');head.className='panel-head';head.innerHTML='<span class="panel-name"></span><span class="panel-state">● LISTO</span><div class="panel-tools"></div>';head.querySelector('.panel-name').textContent=s.name;
 const tools=head.querySelector('.panel-tools');const addTool=(label,title,fn)=>{const b=document.createElement('button');b.className='icon-button';b.textContent=label;b.title=title;b.onclick=fn;tools.append(b)};
