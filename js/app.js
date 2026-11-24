@@ -123,7 +123,7 @@ async function importRemotePlaylist(presetUrl){
  }
 }
 function toggleDialog(){document.querySelector('#streamName').value='';document.querySelector('#streamUrl').value='';if(typeof dialog.showModal==='function')dialog.showModal();else dialog.setAttribute('open','')}
-document.querySelector('#remoteM3uBtn').onclick=importRemotePlaylist;
+document.querySelector('#remoteM3uBtn').onclick=()=>importRemotePlaylist();
 async function showRemoteChannels(rawUrl){
  const browser=document.querySelector('#channelBrowser'),list=document.querySelector('#channelList'),label=document.querySelector('#channelListCount');
  browser.hidden=false;list.innerHTML='<div class="channel-loading">Cargando canales…</div>';
