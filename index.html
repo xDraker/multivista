@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#090e18">
   <meta name="description" content="Multivista: panel de monitoreo para YouTube y listas M3U.">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="css/styles.css?v=20261124-6">
+  <link rel="stylesheet" href="css/styles.css?v=20261124-7">
   <title>Multivista</title>
 </head>
 <body>
@@ -24,12 +24,18 @@
       <div class="toolbar-actions">
         <button id="addBtn" class="button primary">＋ Agregar panel</button>
         <button id="playAllBtn" class="button secondary">▶ Reproducir todo</button>
-        <button id="fitModeBtn" class="button secondary" title="Alternar entre proporción original y llenar el panel">Ajuste: Proporcional</button>
-        <button id="remoteM3uBtn" class="button secondary">Importar URL</button>
+        <button id="importMenuBtn" class="button secondary menu-trigger" aria-expanded="false" aria-controls="importMenu">Importar ▾</button>
+        <div class="toolbar-menu" id="importMenu" hidden>
+          <button id="remoteM3uBtn" class="button secondary">Importar URL</button>
+          <label class="button secondary file-button">Importar Archivo M3U<input id="m3uFile" type="file" accept=".m3u,.m3u8,audio/x-mpegurl,application/vnd.apple.mpegurl"></label>
+        </div>
         <button id="channelDropdownBtn" class="button secondary" aria-expanded="false">Lista de Canales ▾</button>
         <button id="ledriumBtn" class="button secondary" aria-expanded="false">Cámaras Ledrium ▾</button>
-        <label class="button secondary file-button">Importar Archivo M3U<input id="m3uFile" type="file" accept=".m3u,.m3u8,audio/x-mpegurl,application/vnd.apple.mpegurl"></label>
-        <button id="saveBtn" class="button secondary">Guardar vista</button>
+        <button id="optionsMenuBtn" class="button secondary menu-trigger" aria-expanded="false" aria-controls="optionsMenu">Opciones ▾</button>
+        <div class="toolbar-menu" id="optionsMenu" hidden>
+          <button id="fitModeBtn" class="button secondary" title="Alternar entre proporción original y llenar el panel">Ajuste: Proporcional</button>
+          <button id="saveBtn" class="button secondary">Guardar vista</button>
+        </div>
       </div>
     </section>
     <section id="playlistInfo" class="playlist-info" hidden></section>
@@ -55,6 +61,6 @@
   <script src="https://www.youtube.com/iframe_api"></script>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.18/dist/hls.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mpegts.js@1.7.3/dist/mpegts.min.js"></script>
-  <script src="js/app.js?v=20261124-19"></script>
+  <script src="js/app.js?v=20261124-20"></script>
 </body>
 </html>
