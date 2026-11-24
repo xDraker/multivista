@@ -1,4 +1,7 @@
 const STORE='multivista-v1';
+window.addEventListener('error',e=>{const box=document.querySelector('#toast');if(box){box.textContent='Error de la aplicación: '+(e.message||'JavaScript');box.classList.add('show')}});
+window.addEventListener('unhandledrejection',e=>{const box=document.querySelector('#toast');if(box){box.textContent='Error: '+(e.reason?.message||String(e.reason));box.classList.add('show')}});
+
 const dashboard=document.querySelector('#dashboard'),emptyState=document.querySelector('#emptyState'),countEl=document.querySelector('#streamCount'),dialog=document.querySelector('#addDialog'),form=document.querySelector('#addForm'),toastEl=document.querySelector('#toast');
 let streams=[],players=new Map(),editMode=false,toastTimer;
 let backgroundHost=null;
@@ -119,7 +122,7 @@ async function importRemotePlaylist(presetUrl){
   showError('No se pudo importar la lista: '+(err?.message||'error desconocido'));
  }
 }
-function toggleDialog(){document.querySelector('#streamName').value='';document.querySelector('#streamUrl').value='';dialog.showModal()}
+function toggleDialog(){document.querySelector('#streamName').value='';document.querySelector('#streamUrl').value='';if(typeof dialog.showModal==='function')dialog.showModal();else dialog.setAttribute('open','')}
 document.querySelector('#remoteM3uBtn').onclick=importRemotePlaylist;
 async function showRemoteChannels(rawUrl){
  const browser=document.querySelector('#channelBrowser'),list=document.querySelector('#channelList'),label=document.querySelector('#channelListCount');
@@ -198,7 +201,7 @@ document.querySelector('#hideChannelsBtn').onclick=()=>{document.querySelector('
 
 
 document.querySelector('#addBtn').onclick=toggleDialog;
-document.querySelector('#playAllBtn').onclick=()=>{let started=0;for(const s of streams){const card=dashboard.querySelector('[data-id=\"'+s.id+'\"]'),wrap=card?.querySelector('.player-wrap');if(card&&wrap){startPlayer(s,wrap,card);started++}}toast(started?'Iniciando '+started+' transmisiones':'No hay paneles para reproducir')};document.querySelector('#emptyAddBtn').onclick=toggleDialog;document.querySelector('#closeDialog').onclick=()=>dialog.close();document.querySelector('#cancelDialog').onclick=()=>dialog.close();
+document.querySelector('#playAllBtn').onclick=()=>{let started=0;for(const s of streams){const card=dashboard.querySelector('[data-id=\"'+s.id+'\"]'),wrap=card?.querySelector('.player-wrap');if(card&&wrap){startPlayer(s,wrap,card);started++}}toast(started?'Iniciando '+started+' transmisiones':'No hay paneles para reproducir')};document.querySelector('#emptyAddBtn').onclick=toggleDialog;document.querySelector('#closeDialog').onclick=()=>{if(typeof dialog.close==='function')dialog.close();else dialog.removeAttribute('open')};document.querySelector('#cancelDialog').onclick=()=>{if(typeof dialog.close==='function')dialog.close();else dialog.removeAttribute('open')};
 form.addEventListener('submit',e=>{e.preventDefault();addStream(document.querySelector('#streamName').value,document.querySelector('#streamUrl').value.trim());dialog.close()});
 document.querySelector('#editBtn').onclick=()=>{editMode=!editMode;document.body.classList.toggle('edit-mode',editMode);dashboard.querySelectorAll('.panel').forEach(card=>card.draggable=editMode);document.querySelector('#editBtn').textContent=editMode?'Terminar edición':'Editar diseño';toast(editMode?'Arrastra los paneles para reordenarlos':'Edición finalizada')};
 document.querySelector('#fullscreenBtn').onclick=()=>{if(!document.fullscreenElement)document.documentElement.requestFullscreen?.();else document.exitFullscreen?.()};
