@@ -127,7 +127,7 @@ async function showRemoteChannels(rawUrl){
   const u=new URL(rawUrl);
   let textContent='';
   if(u.hostname==='raw.githubusercontent.com'){
-   const p=u.pathname.split('/').filter(Boolean);let branch,path;
+   const p=u.pathname.split('/').filter(Boolean).map(part=>decodeURIComponent(part));let branch,path;
    if(p[2]==='refs'&&p[3]==='heads'){branch=p[4];path=p.slice(5)}else{branch=p[2];path=p.slice(3)}
    if(p.length>=4&&branch&&path.length){
     const api='https://api.github.com/repos/'+p[0]+'/'+p[1]+'/contents/'+path.map(encodeURIComponent).join('/')+'?ref='+encodeURIComponent(branch);
@@ -179,8 +179,20 @@ async function showRemoteChannels(rawUrl){
   });
  }catch(err){list.innerHTML='';const error=document.createElement('p');error.className='channel-error';error.textContent='No se pudo cargar la lista: '+err.message;list.append(error);label.textContent='Error al leer la lista';}
 }
-document.querySelector('#loadPlaylistBtn').onclick=()=>{const select=document.querySelector('#playlistSelect');if(!select.value){toast('Selecciona una lista primero');return}showRemoteChannels(select.value)};
-document.querySelector('#hideChannelsBtn').onclick=()=>{document.querySelector('#channelBrowser').hidden=true};
+const channelDropdown=document.querySelector('#channelDropdownBtn');
+const channelBrowser=document.querySelector('#channelBrowser');
+channelDropdown.onclick=()=>{
+ if(channelBrowser.hidden){
+  channelDropdown.setAttribute('aria-expanded','true');
+  channelDropdown.textContent='Canales TV Chile ▴';
+  showRemoteChannels('https://raw.githubusercontent.com/xDraker/TV_Chile_Grabable/refs/heads/main/TV%20Chile%20Grabable');
+ }else{
+  channelBrowser.hidden=true;
+  channelDropdown.setAttribute('aria-expanded','false');
+  channelDropdown.textContent='Canales TV Chile ▾';
+ }
+};
+document.querySelector('#hideChannelsBtn').onclick=()=>{document.querySelector('#channelBrowser').hidden=true;channelDropdown.setAttribute('aria-expanded','false');channelDropdown.textContent='Canales TV Chile ▾'};
 
 
 document.querySelector('#addBtn').onclick=toggleDialog;document.querySelector('#emptyAddBtn').onclick=toggleDialog;document.querySelector('#closeDialog').onclick=()=>dialog.close();document.querySelector('#cancelDialog').onclick=()=>dialog.close();
