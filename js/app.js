@@ -180,6 +180,7 @@ async function showRemoteChannels(rawUrl){
   if(!channels.length)throw new Error('No se encontraron canales en la lista');
   label.textContent=channels.length+' canales · Elige cuáles quieres reproducir';
   list.innerHTML='';
+  const activeChannelUrls=new Set(streams.map(stream=>{try{return new URL(stream.url).href}catch{return stream.url}}));
   channels.forEach((channel,index)=>{
    const item=document.createElement('article');item.className='channel-item';
    const number=document.createElement('span');number.className='channel-number';number.textContent=String(index+1).padStart(2,'0');
@@ -187,8 +188,18 @@ async function showRemoteChannels(rawUrl){
    const title=document.createElement('strong');title.textContent=channel.name;
    const host=document.createElement('small');host.textContent=new URL(channel.url).hostname;
    details.append(title,host);
-   item.classList.add('channel-available');
-   item.title='Seleccionar '+channel.name;
+   const channelUrl=new URL(channel.url).href;
+   const alreadyPlaying=activeChannelUrls.has(channelUrl);
+   if(alreadyPlaying){
+    item.classList.add('channel-in-use');
+    item.title='Este canal ya está abierto en un panel';
+    item.setAttribute('aria-disabled','true');
+    const status=document.createElement('small');status.className='channel-status';status.textContent='EN REPRODUCCIÓN';
+    details.append(status);
+   }else{
+    item.classList.add('channel-available');
+    item.title='Seleccionar '+channel.name;
+   }
    const chooseChannel=()=>{
     const finishSelection=()=>{
      item.remove();
@@ -207,7 +218,7 @@ async function showRemoteChannels(rawUrl){
     if(card&&wrap)startPlayer(stream,wrap,card);
     finishSelection();toast(channel.name+' reproduciéndose');
    };
-   item.addEventListener('click',chooseChannel);
+   if(!alreadyPlaying)item.addEventListener('click',chooseChannel);
    item.append(number,details);list.append(item);
   });
  }catch(err){list.innerHTML='';const error=document.createElement('p');error.className='channel-error';error.textContent='No se pudo cargar la lista: '+err.message;list.append(error);label.textContent='Error al leer la lista';}
