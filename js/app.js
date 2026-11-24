@@ -13,7 +13,9 @@ function classify(url){if(youtubeId(url))return'youtube';if(/\.m3u8?(?:$|[?#])/i
 function save(){localStorage.setItem(STORE,JSON.stringify(streams.map(({id,name,url,size,tall,muted})=>({id,name,url,size,tall,muted}))));}
 function load(){try{streams=JSON.parse(localStorage.getItem(STORE)||'[]').slice(0,6)}catch{streams=[]}render()}
 function addStream(name,url){if(streams.length>=6){toast('Máximo de 6 paneles');return}if(!url||!/^https?:\/\//i.test(url)){toast('Introduce una URL válida (http o https)');return}streams.push({id:id(),name:name.trim()||'Transmisión '+(streams.length+1),url,size:'medium',tall:false,muted:true});save();render();toast('Panel agregado')}
-function removeStream(pid){const card=dashboard.querySelector('[data-id=\"'+pid+'\"]'),wrap=card?.querySelector('.player-wrap');if(wrap&&players.has(pid)){const slot=document.createElement('div');slot.style.cssText='position:relative;width:640px;height:360px;overflow:hidden';while(wrap.firstChild)slot.append(wrap.firstChild);getBackgroundHost().append(slot);const entry=players.get(pid);if(entry)entry.backgroundSlot=slot;}else destroyPlayer(pid);streams=streams.filter(s=>s.id!==pid);save();render();toast('Panel cerrado; la transmisión continúa en segundo plano')}
+function removeStream(pid){const card=dashboard.querySelector('[data-id="'+pid+'"]'),wrap=card?.querySelector('.player-wrap');if(wrap&&players.has(pid)){const slot=document.createElement('div');slot.style.cssText='position:relative;width:640px;height:360px;overflow:hidden';while(wrap.firstChild)slot.append(wrap.firstChild);getBackgroundHost().append(slot);const entry=players.get(pid);if(entry)entry.backgroundSlot=slot;}else destroyPlayer(pid);streams=streams.filter(s=>s.id!==pid);save();render();toast('Panel cerrado; la transmisión continúa en segundo plano')}
+function replaceStream(pid,channel){const current=streams.find(s=>s.id===pid);if(!current)return false;const entry=players.get(pid);if(entry?.backgroundSlot)entry.backgroundSlot.remove();destroyPlayer(pid);current.name=channel.name;current.url=channel.url;current.muted=true;save();render();const card=dashboard.querySelector('[data-id="'+pid+'"]'),wrap=card?.querySelector('.player-wrap');if(card&&wrap)startPlayer(current,wrap,card);return true}
+function askPanelToReplace(channel,onSuccess){let picker=document.querySelector('#replacePanelDialog');if(!picker){picker=document.createElement('dialog');picker.id='replacePanelDialog';picker.className='dialog replace-dialog';picker.innerHTML='<div class="dialog-head"><div><h2>Reemplazar un panel</h2><p>Ya tienes 6 paneles ocupados. ¿Cuál deseas reemplazar por este canal?</p></div><button type="button" class="icon-button" data-close aria-label="Cerrar">×</button></div><div class="replace-panel-list"></div><div class="dialog-actions"><button type="button" class="button secondary" data-close>Cancelar</button></div>';picker.querySelectorAll('[data-close]').forEach(button=>button.addEventListener('click',()=>picker.close()));document.body.append(picker)}const list=picker.querySelector('.replace-panel-list');list.innerHTML='';streams.forEach((stream,index)=>{const button=document.createElement('button');button.type='button';button.className='replace-panel-option';const name=document.createElement('strong');name.textContent='Panel '+(index+1)+': '+stream.name;const source=document.createElement('small');source.textContent=stream.url;button.append(name,source);button.addEventListener('click',()=>{if(replaceStream(stream.id,channel)){picker.close();if(onSuccess)onSuccess();toast('Panel '+(index+1)+' reemplazado por '+channel.name)}});list.append(button)});if(typeof picker.showModal==='function')picker.showModal();else picker.setAttribute('open','')}
 function destroyPlayer(pid){const p=players.get(pid);if(p){try{if(p.player?.destroy)p.player.destroy();if(p.hls)p.hls.destroy();if(p.mpegts)p.mpegts.destroy()}catch{}players.delete(pid)}}
 function render(){const liveNodes=new Map();for(const s of streams){const oldWrap=dashboard.querySelector('[data-id=\"'+s.id+'\"] .player-wrap');if(oldWrap&&players.has(s.id)&&oldWrap.childNodes.length)liveNodes.set(s.id,Array.from(oldWrap.childNodes));}dashboard.innerHTML='';const n=streams.length,cols=n>=5?3:n>=3?2:n||1,rows=Math.max(1,Math.ceil(n/cols));dashboard.className='dashboard panels-'+n;dashboard.style.height=n?'calc(100vh - 235px)':'auto';dashboard.style.gridTemplateColumns='repeat('+cols+',minmax(0,1fr))';dashboard.style.gridTemplateRows=n?'repeat('+rows+',minmax(0,1fr))':'none';countEl.textContent=streams.length+' / 6 PANELES';emptyState.hidden=streams.length>0;for(const s of streams){const card=document.createElement('article');card.className='panel '+(s.size==='small'?'small':s.size==='wide'?'wide':s.size==='full'?'full':'')+(s.tall?' tall':'');card.dataset.id=s.id;card.draggable=editMode;
 const head=document.createElement('div');head.className='panel-head';head.innerHTML='<span class="panel-name"></span><span class="panel-state">● LISTO</span><div class="panel-tools"></div>';head.querySelector('.panel-name').textContent=s.name;
@@ -171,16 +173,13 @@ async function showRemoteChannels(rawUrl){
    const add=document.createElement('button');add.className='button primary channel-add';add.textContent='▶ Reproducir';
    add.disabled=streams.length>=6;
    const chooseChannel=()=>{
-    if(streams.length>=6){toast('Máximo de 6 paneles. Quita uno para añadir otro.');return}
+    const finishSelection=()=>{item.remove();const remaining=list.querySelectorAll('.channel-item').length;label.textContent=remaining+' canales disponibles · Selecciona uno para reproducir';};
+    if(streams.length>=6){askPanelToReplace(channel,finishSelection);return}
     const stream={id:id(),name:channel.name,url:channel.url,size:'medium',tall:false,muted:true};
     streams.push(stream);save();render();
     const card=dashboard.querySelector('[data-id="'+stream.id+'"]'),wrap=card?.querySelector('.player-wrap');
     if(card&&wrap)startPlayer(stream,wrap,card);
-    item.remove();
-    const remaining=list.querySelectorAll('.channel-item').length;
-    label.textContent=remaining+' canales disponibles · Selecciona uno para reproducir';
-    list.querySelectorAll('.channel-add').forEach(button=>{button.disabled=streams.length>=6});
-    toast(channel.name+' reproduciéndose');
+    finishSelection();toast(channel.name+' reproduciéndose');
    };
    item.addEventListener('click',chooseChannel);
    add.addEventListener('click',event=>{event.stopPropagation();chooseChannel()});
@@ -202,6 +201,7 @@ channelDropdown.onclick=()=>{
  }
 };
 document.querySelector('#hideChannelsBtn').onclick=()=>{document.querySelector('#channelBrowser').hidden=true;channelDropdown.setAttribute('aria-expanded','false');channelDropdown.textContent='Lista de Canales ▾'};
+document.querySelector('#refreshChannelsBtn').onclick=()=>showRemoteChannels('https://raw.githubusercontent.com/xDraker/TV_Chile_Grabable/refs/heads/main/TV%20Chile%20Grabable');
 
 
 document.querySelector('#addBtn').onclick=toggleDialog;
