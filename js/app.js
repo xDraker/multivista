@@ -25,8 +25,32 @@ function changeSource(s){const next=prompt('Pega la nueva URL de YouTube o M3U8:
 function startPlayer(s,wrap,card){destroyPlayer(s.id);wrap.innerHTML='';const state=card.querySelector('.panel-state');state.textContent='● CONECTANDO';const kind=classify(s.url);
 if(kind==='youtube'){const host=document.createElement('div');host.id='yt-'+s.id;host.style.cssText='position:absolute;inset:0';wrap.append(host);const create=()=>{const player=new YT.Player(host.id,{videoId:youtubeId(s.url),width:'100%',height:'100%',playerVars:{autoplay:1,controls:1,playsinline:1,rel:0,modestbranding:1},events:{onReady:e=>{if(s.muted)e.target.mute();else e.target.unMute();state.textContent='● YOUTUBE'},onStateChange:e=>{state.textContent=e.data===1?'● EN VIVO / REPRODUCIENDO':e.data===3?'● CARGANDO':e.data===0?'● FINALIZADO':'● YOUTUBE'},onError:()=>{state.textContent='● NO DISPONIBLE';toast('YouTube no permite reproducir este vídeo incrustado')}}});players.set(s.id,{player})};if(window.YT?.Player)create();else window.onYouTubeIframeAPIReady=()=>create();
 }else{const video=document.createElement('video');video.controls=true;video.autoplay=true;video.playsInline=true;video.muted=s.muted;wrap.append(video);const entry={video};players.set(s.id,entry);if(kind==='mpegts'&&window.mpegts?.isSupported()){const player=mpegts.createPlayer({type:'mpegts',url:s.url,isLive:true});player.attachMediaElement(video);player.load();player.play().catch(()=>{});entry.mpegts=player;state.textContent='● MPEG-TS'}else if(kind==='mpegts'){state.textContent='● NO COMPATIBLE';toast('Este navegador no admite reproducción MPEG-TS')}else if(kind==='hls'){if(video.canPlayType('application/vnd.apple.mpegurl'))video.src=s.url;else if(window.Hls?.isSupported()){const hls=new Hls({enableWorker:true,capLevelToPlayerSize:true});hls.loadSource(s.url);hls.attachMedia(video);hls.on(Hls.Events.MANIFEST_PARSED,()=>{state.textContent='● HLS';video.play().catch(()=>toast('Presiona reproducir en el vídeo'))});hls.on(Hls.Events.ERROR,(_,data)=>{if(data.fatal){state.textContent='● ERROR DE FUENTE';toast('No se pudo cargar HLS. Revisa URL y CORS')}});entry.hls=hls}else{state.textContent='● NO COMPATIBLE';toast('Este navegador no admite HLS')}}else{video.src=s.url;video.addEventListener('loadedmetadata',()=>state.textContent='● CONECTADO',{once:true});video.addEventListener('error',()=>{state.textContent='● ERROR';toast('No se pudo reproducir esta URL')})}video.play().catch(()=>{})}}
-function toggleDialog(){document.querySelector('#streamName').value='';document.querySelector('#streamUrl').value='';dialog.showModal()}
-document.querySelector('#addBtn').onclick=toggleDialog;document.querySelector('#emptyAddBtn').onclick=toggleDialog;document.querySelector('#closeDialog').onclick=()=>dialog.close();document.querySelector('#cancelDialog').onclick=()=>dialog.close();
+
+async function importRemotePlaylist(){
+ const raw=prompt('Pega la URL pública de la lista .m3u o .m3u8:');
+ if(!raw)return;
+ let url;
+ try{url=new URL(raw.trim());if(!/^https?:$/.test(url.protocol))throw new Error('protocol')}catch{toast('Introduce una URL http o https válida');return}
+ try{
+  toast('Descargando lista remota…');
+  const response=await fetch(url.href,{mode:'cors'});
+  if(!response.ok)throw new Error('HTTP '+response.status);
+  const content=await response.text();
+  if(!content.trim().startsWith('#EXTM3U'))throw new Error('No parece una lista M3U');
+  const lines=content.split(/\r?\n/);let name='';const found=[];let isHlsMedia=lines.some(line=>/^#EXT-X-(TARGETDURATION|MEDIA-SEQUENCE|STREAM-INF|ENDLIST|PLAYLIST-TYPE|VERSION)/i.test(line.trim()));
+  for(const rawLine of lines){const line=rawLine.trim();if(!line)continue;if(line.startsWith('#EXTINF')){name=line.split(',').slice(1).join(',').trim()||'Canal '+(found.length+1);continue}if(line.startsWith('#'))continue;try{const streamUrl=new URL(line,url.href);if(/^https?:$/.test(streamUrl.protocol)){found.push({name:name||'Canal '+(found.length+1),url:streamUrl.href});name=''}}catch{}}
+  if(found.length&&!isHlsMedia){
+   let added=0;for(const item of found.slice(0,6-streams.length)){addStream(item.name,item.url);added++}
+   document.querySelector('#playlistInfo').hidden=false;
+   document.querySelector('#playlistInfo').textContent='Lista remota: '+found.length+' fuentes encontradas, '+added+' paneles agregados.';
+   if(!added)toast('Ya tienes 6 paneles. Elimina uno para importar canales.');else toast(added+' canales importados');
+  }else{
+   addStream(url.pathname.split('/').pop()||'Transmisión HLS',url.href);
+  }
+ }catch(err){console.error(err);toast(err.message==='Failed to fetch'?'No se pudo acceder a la lista: el servidor puede bloquear CORS.':'No se pudo importar la lista remota. Revisa la URL y el acceso CORS.')}
+}
+\nfunction toggleDialog(){document.querySelector('#streamName').value='';document.querySelector('#streamUrl').value='';dialog.showModal()}
+document.querySelector('#remoteM3uBtn').onclick=importRemotePlaylist;\ndocument.querySelector('#addBtn').onclick=toggleDialog;document.querySelector('#emptyAddBtn').onclick=toggleDialog;document.querySelector('#closeDialog').onclick=()=>dialog.close();document.querySelector('#cancelDialog').onclick=()=>dialog.close();
 form.addEventListener('submit',e=>{e.preventDefault();addStream(document.querySelector('#streamName').value,document.querySelector('#streamUrl').value.trim());dialog.close()});
 document.querySelector('#editBtn').onclick=()=>{editMode=!editMode;document.body.classList.toggle('edit-mode',editMode);dashboard.querySelectorAll('.panel').forEach(card=>card.draggable=editMode);document.querySelector('#editBtn').textContent=editMode?'Terminar edición':'Editar diseño';toast(editMode?'Arrastra los paneles para reordenarlos':'Edición finalizada')};
 document.querySelector('#fullscreenBtn').onclick=()=>{if(!document.fullscreenElement)document.documentElement.requestFullscreen?.();else document.exitFullscreen?.()};
