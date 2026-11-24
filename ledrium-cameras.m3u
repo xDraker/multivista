@@ -1,0 +1,13 @@
+#EXTM3U
+#EXTINF:-1, Tobalaba · MUT
+https://multivista-ledrium-proxy.onrender.com/api/stream/whep/cam1
+#EXTINF:-1, Costanera Center
+https://multivista-ledrium-proxy.onrender.com/api/stream/whep/cam2
+#EXTINF:-1, Luis Thayer Ojeda
+https://multivista-ledrium-proxy.onrender.com/api/stream/whep/cam3
+#EXTINF:-1, Peñalolén Norte
+https://multivista-ledrium-proxy.onrender.com/api/stream/whep/cam2_botanico
+#EXTINF:-1, Peñalolén Sur
+https://multivista-ledrium-proxy.onrender.com/api/stream/whep/cam1_botanico
+#EXTINF:-1, PPH CAM
+https://multivista-ledrium-proxy.onrender.com/api/stream/whep/cam_ph
