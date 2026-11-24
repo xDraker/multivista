@@ -153,12 +153,26 @@ async function showRemoteChannels(rawUrl){
   }
   textContent=textContent.replace(/^\uFEFF/,'');
   if(!textContent.trim().startsWith('#EXTM3U'))throw new Error('El archivo no contiene una lista M3U válida');
-  const channels=[];let name='';
+  const channels=[];let pendingName='',pendingHasExtinf=false;
   for(const raw of textContent.split(/\r?\n/)){
    const line=String(raw ?? '').trim();if(!line)continue;
-   if(line.startsWith('#EXTINF')){const comma=line.indexOf(',');name=comma>=0?line.slice(comma+1).trim():'Canal '+(channels.length+1);continue}
+   if(line.startsWith('#EXTINF')){
+    const comma=line.indexOf(',');
+    pendingName=comma>=0?line.slice(comma+1).trim():'';
+    const tvgName=line.match(/tvg-name=["']([^"']+)["']/i)?.[1]?.trim();
+    if(!pendingName&&tvgName)pendingName=tvgName;
+    pendingHasExtinf=true;
+    continue;
+   }
    if(line.startsWith('#'))continue;
-   try{const streamUrl=new URL(line,u.href);if(/^https?:$/.test(streamUrl.protocol)){channels.push({name:name||'Canal '+(channels.length+1),url:streamUrl.href});name=''}}catch{}
+   try{
+    const streamUrl=new URL(line,u.href);
+    if(/^https?:$/.test(streamUrl.protocol)){
+     const fallbackName=streamUrl.hostname.replace(/^www\./i,'');
+     channels.push({name:pendingName||fallbackName,url:streamUrl.href});
+     pendingName='';pendingHasExtinf=false;
+    }
+   }catch{}
   }
   if(!channels.length)throw new Error('No se encontraron canales en la lista');
   label.textContent=channels.length+' canales · Elige cuáles quieres reproducir';
