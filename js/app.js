@@ -184,8 +184,8 @@ async function showRemoteChannels(rawUrl){
    const title=document.createElement('strong');title.textContent=channel.name;
    const host=document.createElement('small');host.textContent=new URL(channel.url).hostname;
    details.append(title,host);
-   const add=document.createElement('button');add.className='button primary channel-add';add.textContent='▶ Reproducir';
-   add.disabled=streams.length>=6;
+   item.classList.add('channel-available');
+   item.title='Seleccionar '+channel.name;
    const chooseChannel=()=>{
     const finishSelection=()=>{item.remove();const remaining=list.querySelectorAll('.channel-item').length;label.textContent=remaining+' canales disponibles · Selecciona uno para reproducir';};
     if(streams.length>=6){askPanelToReplace(channel,finishSelection);return}
@@ -196,8 +196,7 @@ async function showRemoteChannels(rawUrl){
     finishSelection();toast(channel.name+' reproduciéndose');
    };
    item.addEventListener('click',chooseChannel);
-   add.addEventListener('click',event=>{event.stopPropagation();chooseChannel()});
-   item.append(number,details,add);list.append(item);
+   item.append(number,details);list.append(item);
   });
  }catch(err){list.innerHTML='';const error=document.createElement('p');error.className='channel-error';error.textContent='No se pudo cargar la lista: '+err.message;list.append(error);label.textContent='Error al leer la lista';}
 }
