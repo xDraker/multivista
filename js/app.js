@@ -435,25 +435,30 @@ document.querySelector('#m3uFile').addEventListener('change',async e=>{
  const label=document.querySelector('#channelListCount');
  const refresh=document.querySelector('#refreshChannelsBtn');
  try{
-  const content=(await file.text()).replace(/^\\uFEFF/,'');
+  const content=(await file.text()).replace(/^\\uFEFF/,'').replace(/^\\u0000+/,'');
   if(!content.trim().startsWith('#EXTM3U'))throw new Error('El archivo no comienza con #EXTM3U. No parece ser una lista M3U válida.');
   const channels=[];let pendingName='';
-  for(const raw of content.split(/\\r?\\n/)){
-   const line=String(raw??'').trim();if(!line)continue;
-   if(line.startsWith('#EXTINF')){
+  // Acepta LF, CRLF y CR, y extrae la URL aunque venga acompañada de espacios o comillas.
+  for(const raw of content.split(/[\\r\\n]+/)){
+   const line=String(raw??'').replace(/^\\uFEFF/,'').trim();if(!line)continue;
+   if(/^#EXTINF/i.test(line)){
     const comma=line.indexOf(',');
     const tvgName=line.match(/tvg-name=["']([^"']+)["']/i)?.[1]?.trim();
     pendingName=(comma>=0?line.slice(comma+1).trim():'')||tvgName||'';
     continue;
    }
    if(line.startsWith('#'))continue;
-   try{
-    const streamUrl=new URL(line,window.location.href);
-    if(/^https?:$/.test(streamUrl.protocol)){
-     channels.push({name:pendingName||streamUrl.hostname||('Canal '+(channels.length+1)),url:streamUrl.href});
-     pendingName='';
-    }
-   }catch{}
+   const matches=line.match(/https?:\\/\\/[^\\s"'<>]+/ig)||[];
+   for(const candidate of matches){
+    try{
+     const clean=candidate.replace(/[),;]+$/,'');
+     const streamUrl=new URL(clean);
+     if(/^https?:$/.test(streamUrl.protocol)){
+      channels.push({name:pendingName||streamUrl.hostname||('Canal '+(channels.length+1)),url:streamUrl.href});
+      pendingName='';
+     }
+    }catch{}
+   }
   }
   if(!channels.length)throw new Error('La lista se leyó, pero no contiene enlaces HTTP/HTTPS reconocibles.');
   activeChannelListUrl='';
