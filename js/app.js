@@ -325,6 +325,10 @@ async function showRemoteChannels(rawUrl){
     }
    }catch{}
   }
+  if(rawUrl===ledriumListUrl){
+   const youtubeCamera={name:'Ñuñoa - San Eugenio',url:'https://www.youtube.com/watch?v=_Nrt155MExU'};
+   if(!channels.some(channel=>channel.url===youtubeCamera.url))channels.unshift(youtubeCamera);
+  }
   if(!channels.length)throw new Error('No se encontraron canales en la lista');
   label.textContent=channels.length+' canales · Elige cuáles quieres reproducir';
   list.innerHTML='';
@@ -378,7 +382,7 @@ function closeChannelBrowser(){
  channelDropdown.setAttribute('aria-expanded','false');
  channelDropdown.textContent='Lista de Canales ▾';
  ledriumBtn.setAttribute('aria-expanded','false');
- ledriumBtn.textContent='Cámaras Ledrium ▾';
+ ledriumBtn.textContent='Cámaras Youtube y Leridium ▾';
 }
 channelDropdown.onclick=()=>{
  if(channelBrowser.hidden){
@@ -399,7 +403,7 @@ ledriumBtn.onclick=()=>{
  closeChannelBrowser();
  channelBrowser.hidden=false;
  ledriumBtn.setAttribute('aria-expanded','true');
- ledriumBtn.textContent='Cámaras Ledrium ▴';
+ ledriumBtn.textContent='Cámaras Youtube y Leridium ▴';
  showRemoteChannels(ledriumListUrl);
 };
 document.querySelector('#hideChannelsBtn').onclick=closeChannelBrowser;
