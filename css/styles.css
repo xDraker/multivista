@@ -114,3 +114,6 @@ body.fit-fill .player-wrap video{object-fit:fill}
 
 /* Evitar que el menú de Opciones se salga del borde derecho */
 @media(min-width:851px){#optionsMenu{left:auto;right:0}}
+
+/* Fallback IPTV mediante proxy HTTPS */
+.panel-state.status-proxy{color:#38bdf8}

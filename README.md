@@ -25,3 +25,24 @@ Dashboard web para visualizar entre 4 y 6 fuentes de vídeo en una distribución
 
 ## Publicación
 En GitHub: **Settings → Pages → Deploy from a branch → main → /(root)**.
+
+
+## Reproducción IPTV con fallback automático
+
+Para los enlaces IPTV HTTP/HTTPS, Multivista intenta primero la URL original desde el navegador. Si HLS.js detecta un error fatal de red/manifiesto/segmento, o el elemento de vídeo falla o no comienza a reproducir dentro del tiempo de espera, cambia automáticamente al proxy HTTPS de Render.
+
+- Se conserva la URL original en la configuración local del panel.
+- El proxy reescribe manifiestos HLS y enruta segmentos, claves y playlists anidadas.
+- También puede retransmitir fuentes directas compatibles con HTML5/MPEG-TS.
+- YouTube y las cámaras Ledrium/WHEP mantienen sus rutas de reproducción actuales.
+- Multivista recuerda localmente qué método consiguió reproducir cada URL y acorta el tiempo del siguiente fallback, sin saltarse el intento directo inicial.
+
+### Seguridad del proxy IPTV
+
+El endpoint `/iptv?url=` no es un proxy HTTP abierto. Solo acepta HTTP/HTTPS hacia dominios de una lista permitida, sigue un máximo de cinco redireccionamientos y vuelve a validar cada destino. Rechaza credenciales embebidas, IP privadas y destinos DNS privados. La lista se configura mediante `IPTV_PROXY_ALLOWED_HOSTS` (dominios separados por coma).
+
+La lista inicial contempla proveedores presentes en las playlists del proyecto: `mdstrm.com`, `dps.live`, `dpsgo.com`, `rudo.video`, `making.cl`, `intersurtv.cl`, `tlink.cl`, `senado.cl` y la IP pública usada por Mega 2/Meganoticias.
+
+### Limitaciones
+
+El proxy puede resolver CORS, Mixed Content, redirecciones y diferencias de cabeceras HTTP habituales. No elimina DRM, geobloqueos, autenticación obligatoria, tokens vencidos ni incompatibilidades de códec. No transcodifica vídeo.
