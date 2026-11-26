@@ -226,17 +226,22 @@ async function importRemotePlaylist(presetUrl){
   if(api){
    try{content=await fetchGitHubApi(api)}catch(err){lastError=err}
   }
-  // M3U.CL no permite CORS desde el navegador: descargar su lista mediante
-  // el endpoint limitado del proxy, que solo acepta dominios m3u.cl.
-  if(typeof content!=='string'&&(url.hostname==='m3u.cl'||url.hostname.endsWith('.m3u.cl'))){
+  // M3U.CL no permite CORS desde el navegador: usar exclusivamente el proxy.
+  // No hacer fallback directo, porque ocultaría el error real del proxy.
+  if(url.hostname==='m3u.cl'||url.hostname.endsWith('.m3u.cl')){
+   const proxyUrl=IPTV_PROXY_BASE+'/playlist?url='+encodeURIComponent(url.href);
+   let response;
    try{
-    const proxyUrl=IPTV_PROXY_BASE+'/playlist?url='+encodeURIComponent(url.href);
-    const response=await fetch(proxyUrl,{cache:'no-store'});
-    if(!response.ok)throw new Error('Proxy de listas respondió HTTP '+response.status);
-    content=await response.text();
-   }catch(err){lastError=err}
-  }
-  if(typeof content!=='string'){
+    response=await fetch(proxyUrl,{cache:'no-store'});
+   }catch(err){
+    throw new Error('No se pudo conectar con el proxy de listas ('+(err?.message||'error de red')+'). URL: '+proxyUrl);
+   }
+   const responseText=await response.text();
+   if(!response.ok){
+    throw new Error('Proxy de listas respondió HTTP '+response.status+': '+responseText.slice(0,300));
+   }
+   content=responseText;
+  }else if(typeof content!=='string'){
    try{content=await fetchText(url.href)}catch(err){lastError=err}
   }
   if(typeof content!=='string')throw lastError||new Error('No se pudo descargar el archivo');
