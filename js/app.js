@@ -422,7 +422,82 @@ document.querySelector('#fullscreenBtn').onclick=()=>{
  }else document.exitFullscreen?.();
 };
 document.querySelector('#saveBtn').onclick=()=>{save();toast('Distribución guardada en este dispositivo')};
-document.querySelector('#m3uFile').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;try{const text=await file.text();const lines=text.split(/\r?\n/);let name='';const found=[];for(const raw of lines){const line=String(raw ?? '').trim();if(!line)continue;if(line.startsWith('#EXTINF')){name=line.split(',').slice(1).join(',').trim()||'Canal '+(found.length+1);continue}if(line.startsWith('#'))continue;if(/^https?:\/\//i.test(line)){found.push({name:name||'Canal '+(found.length+1),url:line});name=''}}if(!found.length){toast('No encontré enlaces HTTP/HTTPS en la lista');return}let added=0;for(const item of found.slice(0,6-streams.length)){addStream(item.name,item.url);added++}document.querySelector('#playlistInfo').hidden=false;document.querySelector('#playlistInfo').textContent='Lista '+file.name+': '+found.length+' fuentes encontradas, '+added+' paneles agregados. Puedes añadir más canales después.';toast(added+' fuentes importadas');}catch(err){toast('No se pudo leer el archivo M3U')}e.target.value=''});
+document.querySelector('#m3uFile').addEventListener('change',async e=>{
+ const file=e.target.files?.[0];if(!file)return;
+ const info=document.querySelector('#playlistInfo');
+ const browser=document.querySelector('#channelBrowser');
+ const list=document.querySelector('#channelList');
+ const label=document.querySelector('#channelListCount');
+ const refresh=document.querySelector('#refreshChannelsBtn');
+ try{
+  const content=(await file.text()).replace(/^\\uFEFF/,'');
+  if(!content.trim().startsWith('#EXTM3U'))throw new Error('El archivo no comienza con #EXTM3U. No parece ser una lista M3U válida.');
+  const channels=[];let pendingName='';
+  for(const raw of content.split(/\\r?\\n/)){
+   const line=String(raw??'').trim();if(!line)continue;
+   if(line.startsWith('#EXTINF')){
+    const comma=line.indexOf(',');
+    const tvgName=line.match(/tvg-name=["']([^"']+)["']/i)?.[1]?.trim();
+    pendingName=(comma>=0?line.slice(comma+1).trim():'')||tvgName||'';
+    continue;
+   }
+   if(line.startsWith('#'))continue;
+   try{
+    const streamUrl=new URL(line,window.location.href);
+    if(/^https?:$/.test(streamUrl.protocol)){
+     channels.push({name:pendingName||streamUrl.hostname||('Canal '+(channels.length+1)),url:streamUrl.href});
+     pendingName='';
+    }
+   }catch{}
+  }
+  if(!channels.length)throw new Error('La lista se leyó, pero no contiene enlaces HTTP/HTTPS reconocibles.');
+  activeChannelListUrl='';
+  browser.hidden=false;
+  browser.scrollIntoView({behavior:'smooth',block:'start'});
+  if(refresh)refresh.disabled=true;
+  list.innerHTML='';
+  const activeUrls=new Set(streams.map(stream=>{try{return new URL(stream.url).href}catch{return stream.url}}));
+  channels.forEach((channel,index)=>{
+   const item=document.createElement('article');item.className='channel-item';
+   const number=document.createElement('span');number.className='channel-number';number.textContent=String(index+1).padStart(2,'0');
+   const details=document.createElement('div');details.className='channel-details';
+   const title=document.createElement('strong');title.textContent=channel.name;
+   const host=document.createElement('small');host.textContent=new URL(channel.url).hostname;
+   details.append(title,host);
+   const button=document.createElement('button');button.type='button';button.className='button secondary channel-add';
+   const normalized=new URL(channel.url).href;
+   if(activeUrls.has(normalized)){
+    button.textContent='En panel';button.disabled=true;item.classList.add('channel-in-use');
+   }else{
+    button.textContent='＋ Abrir';
+    button.addEventListener('click',()=>{
+     const finish=()=>{
+      activeUrls.add(normalized);item.remove();
+      const remaining=list.querySelectorAll('.channel-item').length;
+      label.textContent=remaining+' canales disponibles · '+file.name;
+      if(!remaining)label.textContent='Todos los canales del archivo fueron seleccionados · '+file.name;
+     };
+     if(streams.length>=6){askPanelToReplace(channel,finish);return}
+     const stream={id:id(),name:channel.name,url:channel.url,size:'medium',tall:false,muted:true};
+     streams.push(stream);save();render();
+     const card=dashboard.querySelector('[data-id="'+stream.id+'"]'),wrap=card?.querySelector('.player-wrap');
+     if(card&&wrap)startPlayer(stream,wrap,card);
+     finish();toast(channel.name+' reproduciéndose');
+    });
+   }
+   item.append(number,details,button);list.append(item);
+  });
+  label.textContent=channels.length+' canales · Archivo: '+file.name+' · Selecciona cuáles quieres reproducir';
+  info.hidden=false;
+  info.textContent='Lista '+file.name+' cargada: '+channels.length+' canales disponibles. Selecciona cada canal para abrirlo en un panel; la lista permanecerá visible.';
+  toast('Lista M3U cargada: '+channels.length+' canales');
+ }catch(err){
+  console.error('Multivista importación M3U local:',err);
+  info.hidden=false;info.textContent='No se pudo leer la lista: '+(err?.message||'error desconocido');
+  toast('No se pudo importar el archivo M3U');
+ }
+ e.target.value='';
+}); 
 const fitBtn=document.querySelector('#fitModeBtn');
 let fitMode=localStorage.getItem('multivista-fit-mode')||'contain';
 function applyFitMode(){document.body.classList.toggle('fit-fill',fitMode==='fill');if(fitBtn)fitBtn.textContent=fitMode==='fill'?'Ajuste: Llenar panel':'Ajuste: Proporcional'}
