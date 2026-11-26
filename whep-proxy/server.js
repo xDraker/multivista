@@ -52,7 +52,7 @@ const IPTV_ALLOWED_HOSTS = [
     ? configuredIptvHosts.split(',')
     : [
         'mdstrm.com','dps.live','dpsgo.com','rudo.video','making.cl',
-        'intersurtv.cl','tlink.cl','senado.cl','dai.google.com','15.204.196.147'
+        'intersurtv.cl','tlink.cl','senado.cl','m3u.cl','dai.google.com','15.204.196.147'
       ]),
   ...(configuredIptvHosts ? ['dai.google.com'] : [])
 ].map(x => x.trim().toLowerCase()).filter(Boolean);
@@ -170,6 +170,48 @@ async function buildTvnPlaylistUrl() {
   };
   for (const [key, value] of Object.entries(params)) playlist.searchParams.set(key, value);
   return playlist.href;
+}
+
+
+async function handlePlaylistFetch(req, res, rawUrl) {
+  if (!rawUrl) return sendText(res, 400, 'Missing url parameter');
+  try {
+    const target = await validateIptvUrl(rawUrl);
+    // This endpoint is only for retrieving the Chilean M3U.CL playlist.
+    if (target.hostname !== 'm3u.cl' && !target.hostname.endsWith('.m3u.cl')) {
+      return sendText(res, 403, 'Este endpoint solo admite listas alojadas en m3u.cl');
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 30000);
+    try {
+      const { upstream } = await fetchIptvUpstream(target.href, req, controller.signal);
+      if (!upstream.ok) return sendText(res, upstream.status, 'M3U origin respondió HTTP ' + upstream.status);
+      if (!upstream.body) return sendText(res, 502, 'M3U origin no entregó contenido');
+      const reader = upstream.body.getReader();
+      const chunks = [];
+      let total = 0;
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          total += value.byteLength;
+          if (total > 8 * 1024 * 1024) throw new Error('La lista supera 8 MB');
+          chunks.push(Buffer.from(value));
+        }
+      } finally {
+        reader.releaseLock();
+      }
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/vnd.apple.mpegurl; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-store');
+      res.end(Buffer.concat(chunks));
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch (error) {
+    console.error('[playlist] fetch failure', safeIptvLabel(rawUrl), error?.message || error);
+    sendText(res, 502, 'No se pudo descargar la lista M3U: ' + (error?.message || 'error de origen'));
+  }
 }
 
 async function handleIptvProxy(req, res, rawUrl) {
@@ -332,7 +374,7 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
-  if ((req.method === 'GET' || req.method === 'HEAD') && requestUrl.pathname === '/iptv') {
+  if (req.method === 'GET' && requestUrl.pathname === '/playlist') {\n    return handlePlaylistFetch(req, res, requestUrl.searchParams.get('url'));\n  }\n\n  if ((req.method === 'GET' || req.method === 'HEAD') && requestUrl.pathname === '/iptv') {
     return handleIptvProxy(req, res, requestUrl.searchParams.get('url'));
   }
 
