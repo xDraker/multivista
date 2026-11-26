@@ -52,8 +52,9 @@ const IPTV_ALLOWED_HOSTS = [
     ? configuredIptvHosts.split(',')
     : [
         'mdstrm.com','dps.live','dpsgo.com','rudo.video','making.cl',
-        'intersurtv.cl','tlink.cl','senado.cl','m3u.cl','dai.google.com','15.204.196.147'
+        'intersurtv.cl','tlink.cl','senado.cl','dai.google.com','15.204.196.147'
       ]),
+  'm3u.cl',
   ...(configuredIptvHosts ? ['dai.google.com'] : [])
 ].map(x => x.trim().toLowerCase()).filter(Boolean);
 
