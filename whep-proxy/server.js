@@ -137,7 +137,7 @@ async function buildTvnPlaylistUrl() {
   });
   if (!page.ok) throw new Error('TVN embed respondió HTTP ' + page.status);
   const html = await page.text();
-  const tokenMatch = html.match(/access_token\\s*:\\s*['"]([^'"]+)['"]/i);
+  const tokenMatch = html.match(/access_token\s*:\s*['"]([^'"]+)['"]/i);
   if (!tokenMatch) throw new Error('No se encontró un access_token vigente en el reproductor de TVN');
 
   const makeSessionId = () => crypto.randomBytes(24).toString('base64url');
