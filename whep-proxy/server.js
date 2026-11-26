@@ -120,6 +120,50 @@ async function fetchIptvUpstream(initialUrl, req, signal) {
   throw new Error('Demasiadas redirecciones IPTV');
 }
 
+
+const crypto = require('node:crypto');
+const TVN_EMBED_URL = 'https://live.tvn.cl/?tvn_subseccion=senal-tvn&autostart=false&volume=100';
+const TVN_STREAM_ID = '57a498c4d7b86d600e5461cb';
+const TVN_PLAYER_ID = '57f40bb4dc5b9f3075c49cfe';
+const TVN_DISTRIBUTOR_ID = '606b65ac3572d907cd53753b';
+
+async function buildTvnPlaylistUrl() {
+  const page = await fetch(TVN_EMBED_URL, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36',
+      'Referer': 'https://www.tvn.cl/'
+    },
+    signal: AbortSignal.timeout(15000)
+  });
+  if (!page.ok) throw new Error('TVN embed respondió HTTP ' + page.status);
+  const html = await page.text();
+  const tokenMatch = html.match(/access_token\\s*:\\s*['"]([^'"]+)['"]/i);
+  if (!tokenMatch) throw new Error('No se encontró un access_token vigente en el reproductor de TVN');
+
+  const makeSessionId = () => crypto.randomBytes(24).toString('base64url');
+  const playlist = new URL('https://mdstrm.com/live-stream-playlist/' + TVN_STREAM_ID + '.m3u8');
+  const params = {
+    _: String(Date.now()),
+    dnt: 'true',
+    dual_render: '1',
+    player: TVN_PLAYER_ID,
+    access_token: tokenMatch[1],
+    uid: makeSessionId(),
+    sid: makeSessionId(),
+    pid: makeSessionId(),
+    an: 'tvn-play-app-lg-tv',
+    at: 'web-app',
+    av: 'v1.0.124',
+    sc: '0',
+    ds: TVN_DISTRIBUTOR_ID,
+    ref: 'mdstrm.com',
+    res: '1920x1080',
+    ext_pb: '0'
+  };
+  for (const [key, value] of Object.entries(params)) playlist.searchParams.set(key, value);
+  return playlist.href;
+}
+
 async function handleIptvProxy(req, res, rawUrl) {
   if (!rawUrl) return sendText(res, 400, 'Missing url parameter');
 
@@ -231,6 +275,17 @@ const server = http.createServer(async (req, res) => {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.statusCode = 200;
     return res.end(JSON.stringify({ ok: true, service: 'multivista-ledrium-whep-proxy' }));
+  }
+
+
+  if ((req.method === 'GET' || req.method === 'HEAD') && requestUrl.pathname === '/tvn.m3u8') {
+    try {
+      const freshPlaylistUrl = await buildTvnPlaylistUrl();
+      return handleIptvProxy(req, res, freshPlaylistUrl);
+    } catch (error) {
+      console.error('[tvn] bootstrap failure', error?.message || error);
+      return sendText(res, 502, 'TVN bootstrap error: ' + (error?.message || 'no se pudo iniciar la sesión'));
+    }
   }
 
   if ((req.method === 'GET' || req.method === 'HEAD') && requestUrl.pathname === '/iptv') {
