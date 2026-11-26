@@ -435,12 +435,12 @@ document.querySelector('#m3uFile').addEventListener('change',async e=>{
  const label=document.querySelector('#channelListCount');
  const refresh=document.querySelector('#refreshChannelsBtn');
  try{
-  const content=(await file.text()).replace(/^\\uFEFF/,'').replace(/^\\u0000+/,'');
+  const content=(await file.text()).replace(/^\uFEFF/,'').replace(/^\u0000+/,'');
   if(!content.trim().startsWith('#EXTM3U'))throw new Error('El archivo no comienza con #EXTM3U. No parece ser una lista M3U válida.');
   const channels=[];let pendingName='';
   // Acepta LF, CRLF y CR, y extrae la URL aunque venga acompañada de espacios o comillas.
-  for(const raw of content.split(/[\\r\\n]+/)){
-   const line=String(raw??'').replace(/^\\uFEFF/,'').trim();if(!line)continue;
+  for(const raw of content.split(/[\r\n]+/)){
+   const line=String(raw??'').replace(/^\uFEFF/,'').trim();if(!line)continue;
    if(/^#EXTINF/i.test(line)){
     const comma=line.indexOf(',');
     const tvgName=line.match(/tvg-name=["']([^"']+)["']/i)?.[1]?.trim();
@@ -448,7 +448,7 @@ document.querySelector('#m3uFile').addEventListener('change',async e=>{
     continue;
    }
    if(line.startsWith('#'))continue;
-   const matches=line.match(/https?:\\/\\/[^\\s"'<>]+/ig)||[];
+   const matches=line.match(/https?:\/\/[^\s"'<>]+/ig)||[];
    for(const candidate of matches){
     try{
      const clean=candidate.replace(/[),;]+$/,'');
