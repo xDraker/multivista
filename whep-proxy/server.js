@@ -239,9 +239,45 @@ async function handleIptvProxy(req, res, rawUrl) {
       return;
     }
 
-    const { Readable } = require('node:stream');
-    const { pipeline } = require('node:stream/promises');
-    await pipeline(Readable.fromWeb(upstream.body), res);
+    // Stream the Fetch Web ReadableStream directly. Avoid wrapping it in
+    // Readable.fromWeb()/pipeline(): on client disconnects and abort timeouts
+    // that wrapper has produced an unhandled Readable 'error' in production.
+    const reader = upstream.body.getReader();
+    let streamCompleted = false;
+    try {
+      while (!streamCompleted) {
+        if (controller.signal.aborted || res.destroyed || res.writableEnded) {
+          throw controller.signal.reason || new Error('Cliente desconectado');
+        }
+        const { done, value } = await reader.read();
+        if (done) {
+          streamCompleted = true;
+          break;
+        }
+        if (!res.write(Buffer.from(value))) {
+          await new Promise((resolve, reject) => {
+            const cleanup = () => {
+              res.removeListener('drain', onDrain);
+              res.removeListener('error', onError);
+              res.removeListener('close', onClose);
+            };
+            const onDrain = () => { cleanup(); resolve(); };
+            const onError = (err) => { cleanup(); reject(err); };
+            const onClose = () => { cleanup(); reject(new Error('Cliente desconectado durante la transmisión')); };
+            res.once('drain', onDrain);
+            res.once('error', onError);
+            res.once('close', onClose);
+            if (res.destroyed) onClose();
+          });
+        }
+      }
+      if (!res.destroyed && !res.writableEnded) res.end();
+    } finally {
+      if (!streamCompleted) {
+        try { await reader.cancel('Respuesta del cliente cerrada'); } catch {}
+      }
+      try { reader.releaseLock(); } catch {}
+    }
   } catch (error) {
     const message = error?.message || 'upstream failure';
     console.error('[iptv] failure', safeIptvLabel(rawUrl), message, 'after', Date.now() - startedAt, 'ms');
