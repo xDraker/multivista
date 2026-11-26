@@ -44,10 +44,18 @@ async function readBody(req, limit = 1024 * 1024) {
 
 const dns = require('node:dns').promises;
 const net = require('node:net');
-const IPTV_ALLOWED_HOSTS = (process.env.IPTV_PROXY_ALLOWED_HOSTS || [
-  'mdstrm.com','dps.live','dpsgo.com','rudo.video','making.cl',
-  'intersurtv.cl','tlink.cl','senado.cl','dai.google.com','15.204.196.147'
-].join(',')).split(',').map(x => x.trim().toLowerCase()).filter(Boolean);
+// Keep the deployment's custom allowlist, but always permit Google DAI:
+ // its manifests are used by the DPS-origin channels in the Multivista list.
+const configuredIptvHosts = process.env.IPTV_PROXY_ALLOWED_HOSTS;
+const IPTV_ALLOWED_HOSTS = [
+  ...(configuredIptvHosts
+    ? configuredIptvHosts.split(',')
+    : [
+        'mdstrm.com','dps.live','dpsgo.com','rudo.video','making.cl',
+        'intersurtv.cl','tlink.cl','senado.cl','dai.google.com','15.204.196.147'
+      ]),
+  ...(configuredIptvHosts ? ['dai.google.com'] : [])
+].map(x => x.trim().toLowerCase()).filter(Boolean);
 
 function isPrivateIp(address) {
   if (net.isIPv4(address)) {
