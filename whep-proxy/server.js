@@ -374,7 +374,11 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
-  if (req.method === 'GET' && requestUrl.pathname === '/playlist') {\n    return handlePlaylistFetch(req, res, requestUrl.searchParams.get('url'));\n  }\n\n  if ((req.method === 'GET' || req.method === 'HEAD') && requestUrl.pathname === '/iptv') {
+  if (req.method === 'GET' && requestUrl.pathname === '/playlist') {
+    return handlePlaylistFetch(req, res, requestUrl.searchParams.get('url'));
+  }
+
+  if ((req.method === 'GET' || req.method === 'HEAD') && requestUrl.pathname === '/iptv') {
     return handleIptvProxy(req, res, requestUrl.searchParams.get('url'));
   }
 
