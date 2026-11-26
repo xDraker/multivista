@@ -281,6 +281,7 @@ async function showRemoteChannels(rawUrl){
  browser.hidden=false;list.innerHTML='<div class="channel-loading">Cargando canales…</div>';
  browser.scrollIntoView({behavior:'smooth',block:'start'});
  try{
+  const refreshButton=document.querySelector('#refreshChannelsBtn');if(refreshButton)refreshButton.disabled=false;
   const u=new URL(rawUrl);
   let textContent='';
   if(u.hostname==='raw.githubusercontent.com'){
