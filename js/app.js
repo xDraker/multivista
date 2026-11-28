@@ -343,7 +343,7 @@ async function showRemoteChannels(rawUrl){
   if(rawUrl===ledriumListUrl){
    const youtubeCameras=[
     {name:'Ñuñoa - San Eugenio',url:'https://www.youtube.com/watch?v=_Nrt155MExU'},
-    {name:'YouTube Live',url:'https://www.youtube.com/live/h-IxRrsNA0o'}
+    {name:'Alameda/Vicuña',url:'https://www.youtube.com/live/h-IxRrsNA0o'}
    ];
    for(const camera of youtubeCameras){
     if(!channels.some(channel=>channel.url===camera.url))channels.unshift(camera);
