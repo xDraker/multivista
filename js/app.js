@@ -431,7 +431,9 @@ document.querySelector('#refreshChannelsBtn').onclick=()=>showRemoteChannels(act
 
 
 document.querySelector('#addBtn').onclick=toggleDialog;
-document.querySelector('#playAllBtn').onclick=()=>{let started=0;for(const s of streams){const card=dashboard.querySelector('[data-id=\"'+s.id+'\"]'),wrap=card?.querySelector('.player-wrap');if(card&&wrap){startPlayer(s,wrap,card);started++}}toast(started?'Iniciando '+started+' transmisiones':'No hay paneles para reproducir')};document.querySelector('#emptyAddBtn').onclick=toggleDialog;document.querySelector('#closeDialog').onclick=()=>{if(typeof dialog.close==='function')dialog.close();else dialog.removeAttribute('open')};document.querySelector('#cancelDialog').onclick=()=>{if(typeof dialog.close==='function')dialog.close();else dialog.removeAttribute('open')};
+document.querySelector('#playAllBtn').onclick=()=>{let started=0;for(const s of streams){const card=dashboard.querySelector('[data-id=\"'+s.id+'\"]'),wrap=card?.querySelector('.player-wrap');if(card&&wrap){startPlayer(s,wrap,card);started++}}toast(started?'Iniciando '+started+' transmisiones':'No hay paneles para reproducir')};
+document.querySelector('#closeAllBtn').onclick=()=>{if(!streams.length){toast('No hay paneles abiertos');return}for(const s of streams)destroyPlayer(s.id);streams=[];save();render();toast('Todos los paneles cerrados')};
+document.querySelector('#stopAllBtn').onclick=()=>{if(!streams.length){toast('No hay paneles para detener');return}for(const s of streams){destroyPlayer(s.id);const card=dashboard.querySelector('[data-id="'+s.id+'"]'),wrap=card?.querySelector('.player-wrap');if(wrap){wrap.replaceChildren();const placeholder=document.createElement('div');placeholder.className='placeholder';placeholder.innerHTML='<b>▶</b>Reproducción detenida';const play=document.createElement('button');play.className='button primary';play.textContent='▶ Reproducir';play.onclick=()=>startPlayer(s,wrap,card);placeholder.append(document.createElement('br'),play);wrap.append(placeholder)}const state=card?.querySelector('.panel-state');if(state)setPanelStatus(state,'● DETENIDO','disconnected')}toast('Todas las transmisiones detenidas')};document.querySelector('#emptyAddBtn').onclick=toggleDialog;document.querySelector('#closeDialog').onclick=()=>{if(typeof dialog.close==='function')dialog.close();else dialog.removeAttribute('open')};document.querySelector('#cancelDialog').onclick=()=>{if(typeof dialog.close==='function')dialog.close();else dialog.removeAttribute('open')};
 form.addEventListener('submit',e=>{e.preventDefault();addStream(document.querySelector('#streamName').value,document.querySelector('#streamUrl').value.trim());dialog.close()});
 document.querySelector('#editBtn').onclick=()=>{editMode=!editMode;document.body.classList.toggle('edit-mode',editMode);dashboard.querySelectorAll('.panel').forEach(card=>card.draggable=editMode);document.querySelector('#editBtn').textContent=editMode?'Terminar edición':'Editar diseño';toast(editMode?'Arrastra los paneles para reordenarlos':'Edición finalizada')};
 function setCleanView(enabled){document.body.classList.toggle('clean-view',enabled)}
@@ -561,5 +563,7 @@ function setupToolbarMenu(buttonId,menuId){
  menu.addEventListener('click',event=>{if(event.target.closest('button')||event.target.closest('label'))close()});
  document.addEventListener('click',event=>{if(!menu.contains(event.target)&&!button.contains(event.target))close()});
 }
+setupToolbarMenu('panelsMenuBtn','panelsMenu');
+setupToolbarMenu('playbackMenuBtn','playbackMenu');
 setupToolbarMenu('importMenuBtn','importMenu');
 setupToolbarMenu('optionsMenuBtn','optionsMenu');
