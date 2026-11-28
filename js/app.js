@@ -341,8 +341,13 @@ async function showRemoteChannels(rawUrl){
    }catch{}
   }
   if(rawUrl===ledriumListUrl){
-   const youtubeCamera={name:'Ñuñoa - San Eugenio',url:'https://www.youtube.com/watch?v=_Nrt155MExU'};
-   if(!channels.some(channel=>channel.url===youtubeCamera.url))channels.unshift(youtubeCamera);
+   const youtubeCameras=[
+    {name:'Ñuñoa - San Eugenio',url:'https://www.youtube.com/watch?v=_Nrt155MExU'},
+    {name:'YouTube Live',url:'https://www.youtube.com/live/h-IxRrsNA0o'}
+   ];
+   for(const camera of youtubeCameras){
+    if(!channels.some(channel=>channel.url===camera.url))channels.unshift(camera);
+   }
   }
   if(!channels.length)throw new Error('No se encontraron canales en la lista');
   label.textContent=channels.length+' canales · Elige cuáles quieres reproducir';
